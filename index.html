@@ -1,1 +1,94 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Einkaufsliste</title>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 15px; background-color: #f4f6f8; }
+        h2 { text-align: center; }
+        .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        .btn-scan { width: 100%; padding: 12px; background-color: #28a745; color: white; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        #reader { width: 100%; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border-bottom: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #007bff; color: white; }
+        input, select { width: 90%; padding: 6px; font-size: 14px; }
+        .total { font-weight: bold; font-size: 18px; text-align: right; margin-top: 15px; }
+    </style>
+</head>
+<body>
 
+    <h2>🛒 Supermarkt Einkaufsliste</h2>
+
+    <div class="card">
+        <button class="btn-scan" onclick="startScanner()">📷 Barcode Live Scannen</button>
+        <div id="reader"></div>
+    </div>
+
+    <div class="card">
+        <table id="einkaufsTabelle">
+            <thead>
+                <tr>
+                    <th>Barcode</th>
+                    <th>Kategorie</th>
+                    <th>Preis (€)</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <div class="total">
+            Gesamtsumme: <span id="gesamtpreis">0,00 €</span>
+        </div>
+    </div>
+
+    <script>
+        let html5QrcodeScanner;
+
+        function startScanner() {
+            html5QrcodeScanner = new Html5QrcodeScanner(
+                "reader", { fps: 10, qrbox: {width: 250, height: 150} }, false
+            );
+            html5QrcodeScanner.render(onScanSuccess);
+        }
+
+        function onScanSuccess(decodedText) {
+            html5QrcodeScanner.clear();
+            produktHinzufuegen(decodedText);
+        }
+
+        function produktHinzufuegen(barcode) {
+            let table = document.getElementById("einkaufsTabelle").getElementsByTagName('tbody')[0];
+            let newRow = table.insertRow(0);
+
+            let cell1 = newRow.insertCell(0);
+            cell1.textContent = barcode;
+
+            let cell2 = newRow.insertCell(1);
+            cell2.innerHTML = `
+                <select>
+                    <option>Lebensmittel</option>
+                    <option>Getränke</option>
+                    <option>Drogerie</option>
+                    <option>Sonstiges</option>
+                </select>`;
+
+            let cell3 = newRow.insertCell(2);
+            cell3.innerHTML = `<input type="number" step="0.01" placeholder="0.00" oninput="berechneGesamtsumme()">`;
+        }
+
+        function berechneGesamtsumme() {
+            let inputs = document.querySelectorAll("#einkaufsTabelle tbody input[type='number']");
+            let total = 0;
+            inputs.forEach(input => {
+                let val = parseFloat(input.value);
+                if (!isNaN(val)) total += val;
+            });
+            document.getElementById("gesamtpreis").textContent = total.toFixed(2).replace('.', ',') + " €";
+        }
+    </script>
+
+</body>
+</html>
