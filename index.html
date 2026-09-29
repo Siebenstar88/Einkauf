@@ -3,19 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Einkaufsliste</title>
+    <title>Einkaufsliste Pro</title>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
-        body { font-family: Arial, sans-serif; margin: 15px; background-color: #f4f6f8; }
-        h2 { text-align: center; }
-        .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 15px; }
-        .btn-scan { width: 100%; padding: 12px; background-color: #28a745; color: white; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 15px; background-color: #f4f6f8; }
+        h2 { text-align: center; color: #333; margin-bottom: 15px; }
+        .card { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); margin-bottom: 15px; }
+        
+        .btn-scan { width: 100%; padding: 14px; background-color: #198754; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .btn-reset { width: 100%; padding: 10px; background-color: #dc3545; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 15px; }
+        .btn-delete { background-color: #ff4d4d; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        
         #reader { width: 100%; margin-top: 10px; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border-bottom: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #007bff; color: white; }
-        input, select { width: 90%; padding: 6px; font-size: 14px; }
-        .total { font-weight: bold; font-size: 18px; text-align: right; margin-top: 15px; }
+        th, td { border-bottom: 1px solid #eee; padding: 10px 4px; text-align: left; vertical-align: middle; }
+        th { background-color: #0d6efd; color: white; font-size: 13px; }
+        
+        input, select { width: 95%; padding: 6px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .qty-input { width: 45px !important; text-align: center; }
+        
+        .total-box { font-size: 20px; font-weight: bold; text-align: right; margin-top: 15px; color: #0d6efd; }
     </style>
 </head>
 <body>
@@ -32,16 +39,20 @@
             <thead>
                 <tr>
                     <th>Barcode</th>
-                    <th>Kategorie</th>
+                    <th>Kat.</th>
+                    <th style="width: 50px;">Anz.</th>
                     <th>Preis (€)</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody></tbody>
         </table>
 
-        <div class="total">
+        <div class="total-box">
             Gesamtsumme: <span id="gesamtpreis">0,00 €</span>
         </div>
+
+        <button class="btn-reset" onclick="listeLeeren()">🗑️ Liste leeren</button>
     </div>
 
     <script>
@@ -61,11 +72,14 @@
 
         function produktHinzufuegen(barcode) {
             let table = document.getElementById("einkaufsTabelle").getElementsByTagName('tbody')[0];
-            let newRow = table.insertRow(0);
+            let newRow = table.insertRow(0); // Neue Produkte landen oben
 
+            // Spalte 1: Barcode
             let cell1 = newRow.insertCell(0);
+            cell1.style.fontSize = "12px";
             cell1.textContent = barcode;
 
+            // Spalte 2: Kategorie
             let cell2 = newRow.insertCell(1);
             cell2.innerHTML = `
                 <select>
@@ -75,17 +89,49 @@
                     <option>Sonstiges</option>
                 </select>`;
 
+            // Spalte 3: Menge (Anzahl)
             let cell3 = newRow.insertCell(2);
-            cell3.innerHTML = `<input type="number" step="0.01" placeholder="0.00" oninput="berechneGesamtsumme()">`;
+            cell3.innerHTML = `<input type="number" class="qty-input" value="1" min="1" oninput="berechneGesamtsumme()">`;
+
+            // Spalte 4: Einzelpreis
+            let cell4 = newRow.insertCell(3);
+            cell4.innerHTML = `<input type="number" step="0.01" placeholder="0.00" oninput="berechneGesamtsumme()">`;
+
+            // Spalte 5: Löschen-Button
+            let cell5 = newRow.insertCell(4);
+            cell5.innerHTML = `<button class="btn-delete" onclick="zeileLoeschen(this)">✕</button>`;
         }
 
+        // Funktion: Einzelne Zeile löschen
+        function zeileLoeschen(button) {
+            let row = button.parentNode.parentNode;
+            row.parentNode.removeChild(row);
+            berechneGesamtsumme();
+        }
+
+        // Funktion: Die gesamte Liste zurücksetzen
+        function listeLeeren() {
+            if (confirm("Möchtest du die gesamte Einkaufsliste wirklich leeren?")) {
+                document.getElementById("einkaufsTabelle").getElementsByTagName('tbody')[0].innerHTML = "";
+                berechneGesamtsumme();
+            }
+        }
+
+        // Funktion: Gesamtsumme berechnen (Anzahl * Preis)
         function berechneGesamtsumme() {
-            let inputs = document.querySelectorAll("#einkaufsTabelle tbody input[type='number']");
+            let rows = document.querySelectorAll("#einkaufsTabelle tbody tr");
             let total = 0;
-            inputs.forEach(input => {
-                let val = parseFloat(input.value);
-                if (!isNaN(val)) total += val;
+
+            rows.forEach(row => {
+                let qtyInput = row.cells[2].querySelector("input");
+                let priceInput = row.cells[3].querySelector("input");
+
+                let qty = parseInt(qtyInput.value) || 1;
+                let price = parseFloat(priceInput.value) || 0;
+
+                total += qty * price;
             });
+
             document.getElementById("gesamtpreis").textContent = total.toFixed(2).replace('.', ',') + " €";
         }
     </script>
