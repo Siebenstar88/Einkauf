@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Einkaufsliste Pro + Preistracker</title>
+    <title>Einkaufsliste Pro + Tracker</title>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 15px; background-color: #f4f6f8; }
@@ -11,24 +11,27 @@
         .card { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); margin-bottom: 15px; }
         
         .btn-scan { width: 100%; padding: 14px; background-color: #198754; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
-        .btn-reset { width: 100%; padding: 10px; background-color: #dc3545; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 15px; }
-        .btn-delete { background-color: #ff4d4d; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-action { width: 100%; padding: 10px; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 8px; color: white; }
+        .btn-sort { background-color: #0d6efd; }
+        .btn-share { background-color: #0dcaf0; color: #000; }
+        .btn-reset { background-color: #dc3545; }
+        .btn-delete { background-color: #ff4d4d; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-weight: bold; }
         
         #reader { width: 100%; margin-top: 10px; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border-bottom: 1px solid #eee; padding: 8px 4px; text-align: left; vertical-align: top; }
-        th { background-color: #0d6efd; color: white; font-size: 12px; }
+        th, td { border-bottom: 1px solid #eee; padding: 8px 2px; text-align: left; vertical-align: top; }
+        th { background-color: #0d6efd; color: white; font-size: 11px; }
         
-        input, select { width: 100%; padding: 6px; font-size: 13px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        .qty-input { width: 40px !important; text-align: center; }
-        .price-input { width: 65px !important; }
+        input, select { width: 100%; padding: 5px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .qty-input { width: 35px !important; text-align: center; }
+        .price-input { width: 60px !important; }
         
-        .price-change { font-size: 11px; font-weight: bold; margin-top: 3px; display: block; }
-        .price-up { color: #dc3545; } /* Rot bei Preiserhöhung */
-        .price-down { color: #198754; } /* Grün bei Preisnachlass */
+        .price-change { font-size: 10px; font-weight: bold; margin-top: 2px; display: block; }
+        .price-up { color: #dc3545; }
+        .price-down { color: #198754; }
         
         .total-box { font-size: 20px; font-weight: bold; text-align: right; margin-top: 15px; color: #0d6efd; }
-        .barcode-sub { font-size: 10px; color: #6c757d; display: block; }
+        .barcode-sub { font-size: 9px; color: #6c757d; display: block; }
     </style>
 </head>
 <body>
@@ -41,13 +44,15 @@
     </div>
 
     <div class="card">
+        <button class="btn-action btn-sort" onclick="nachKategorieSortieren()">↕️ Nach Kategorien sortieren</button>
+        
         <table id="einkaufsTabelle">
             <thead>
                 <tr>
-                    <th>Artikel / Code</th>
+                    <th>Artikel / Kat.</th>
                     <th style="width: 35px;">Anz.</th>
-                    <th style="width: 70px;">Preis (€)</th>
-                    <th style="width: 25px;"></th>
+                    <th style="width: 65px;">Preis (€)</th>
+                    <th style="width: 20px;"></th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -57,7 +62,8 @@
             Gesamtsumme: <span id="gesamtpreis">0,00 €</span>
         </div>
 
-        <button class="btn-reset" onclick="listeLeeren()">🗑️ Liste leeren</button>
+        <button class="btn-action btn-share" onclick="listeTeilen()">📲 Liste teilen (WhatsApp/Mail)</button>
+        <button class="btn-action btn-reset" onclick="listeLeeren()">🗑️ Liste leeren</button>
     </div>
 
     <script>
@@ -79,15 +85,23 @@
             let table = document.getElementById("einkaufsTabelle").getElementsByTagName('tbody')[0];
             let newRow = table.insertRow(0);
 
-            // Gespeicherte Daten für diesen Barcode abrufen
             let gespeicherteDaten = JSON.parse(localStorage.getItem("prod_" + barcode)) || {};
             let altName = gespeicherteDaten.name || "";
+            let altKat = gespeicherteDaten.kat || "Lebensmittel";
             let altPreis = gespeicherteDaten.preis !== undefined ? gespeicherteDaten.preis : "";
 
-            // Spalte 1: Artikelname & Barcode-Info
+            // Spalte 1: Name, Kategorie & Barcode
             let cell1 = newRow.insertCell(0);
             cell1.innerHTML = `
-                <input type="text" placeholder="Artikelname..." value="${altName}" oninput="speichereProdukt('${barcode}', this.value, null)">
+                <input type="text" placeholder="Artikelname..." value="${altName}" oninput="speichereProdukt('${barcode}', this.value, null, null)">
+                <select onchange="speichereProdukt('${barcode}', null, this.value, null)" style="margin-top: 3px;">
+                    <option ${altKat === 'Lebensmittel' ? 'selected' : ''}>Lebensmittel</option>
+                    <option ${altKat === 'Obst & Gemüse' ? 'selected' : ''}>Obst & Gemüse</option>
+                    <option ${altKat === 'Getränke' ? 'selected' : ''}>Getränke</option>
+                    <option ${altKat === 'Drogerie' ? 'selected' : ''}>Drogerie</option>
+                    <option ${altKat === 'Tiefkühl' ? 'selected' : ''}>Tiefkühl</option>
+                    <option ${altKat === 'Sonstiges' ? 'selected' : ''}>Sonstiges</option>
+                </select>
                 <span class="barcode-sub">Code: ${barcode}</span>
             `;
 
@@ -95,7 +109,7 @@
             let cell2 = newRow.insertCell(1);
             cell2.innerHTML = `<input type="number" class="qty-input" value="1" min="1" oninput="berechneGesamtsumme()">`;
 
-            // Spalte 3: Preis & Preisvergleich
+            // Spalte 3: Preis & Differenz
             let cell3 = newRow.insertCell(2);
             cell3.innerHTML = `
                 <input type="number" step="0.01" class="price-input" placeholder="0.00" value="${altPreis}" 
@@ -103,11 +117,10 @@
                 <span class="price-change" id="diff_${barcode}"></span>
             `;
 
-            // Spalte 4: Löschen-Button
+            // Spalte 4: Löschen
             let cell4 = newRow.insertCell(3);
             cell4.innerHTML = `<button class="btn-delete" onclick="zeileLoeschen(this)">✕</button>`;
 
-            // Falls alter Preis existiert, direkt beim Laden vergleichen
             if (altPreis !== "") {
                 let inputElem = cell3.querySelector("input");
                 vergleicheUndSpeichere(barcode, inputElem, altPreis);
@@ -121,20 +134,20 @@
             let diffSpan = document.getElementById("diff_" + barcode);
 
             if (!isNaN(neuerPreis)) {
-                // Im LocalStorage aktualisieren
                 let row = inputElem.closest("tr");
-                let nameInput = row.cells[0].querySelector("input").value;
-                speichereProdukt(barcode, nameInput, neuerPreis);
+                let nameInput = row.cells[0].querySelector("input[type='text']").value;
+                let katSelect = row.cells[0].querySelector("select").value;
+                
+                speichereProdukt(barcode, nameInput, katSelect, neuerPreis);
 
-                // Preisvergleich durchführen
                 if (altPreis !== null && altPreis !== "" && !isNaN(altPreis)) {
                     let diff = neuerPreis - parseFloat(altPreis);
                     if (diff > 0) {
                         diffSpan.className = "price-change price-up";
-                        diffSpan.textContent = `+${diff.toFixed(2).replace('.', ',')} € teurer!`;
+                        diffSpan.textContent = `+${diff.toFixed(2).replace('.', ',')} €`;
                     } else if (diff < 0) {
                         diffSpan.className = "price-change price-down";
-                        diffSpan.textContent = `${diff.toFixed(2).replace('.', ',')} € günstiger`;
+                        diffSpan.textContent = `${diff.toFixed(2).replace('.', ',')} €`;
                     } else {
                         diffSpan.textContent = "";
                     }
@@ -146,13 +159,57 @@
             berechneGesamtsumme();
         }
 
-        function speichereProdukt(barcode, name, preis) {
+        function speichereProdukt(barcode, name, kat, preis) {
             let gespeicherteDaten = JSON.parse(localStorage.getItem("prod_" + barcode)) || {};
             
             if (name !== null) gespeicherteDaten.name = name;
+            if (kat !== null) gespeicherteDaten.kat = kat;
             if (preis !== null && !isNaN(preis)) gespeicherteDaten.preis = preis;
 
             localStorage.setItem("prod_" + barcode, JSON.stringify(gespeicherteDaten));
+        }
+
+        // NEU: Sortieren nach Kategorien
+        function nachKategorieSortieren() {
+            let tbody = document.querySelector("#einkaufsTabelle tbody");
+            let rows = Array.from(tbody.querySelectorAll("tr"));
+
+            rows.sort((a, b) => {
+                let katA = a.cells[0].querySelector("select").value;
+                let katB = b.cells[0].querySelector("select").value;
+                return katA.localeCompare(katB);
+            });
+
+            rows.forEach(row => tbody.appendChild(row));
+        }
+
+        // NEU: Liste als Text teilen (z. B. WhatsApp)
+        function listeTeilen() {
+            let rows = document.querySelectorAll("#einkaufsTabelle tbody tr");
+            if (rows.length === 0) {
+                alert("Die Liste ist leer!");
+                return;
+            }
+
+            let text = "🛒 *Meine Einkaufsliste:*\n\n";
+            rows.forEach(row => {
+                let name = row.cells[0].querySelector("input[type='text']").value || "Unbenanntes Produkt";
+                let kat = row.cells[0].querySelector("select").value;
+                let qty = row.cells[1].querySelector("input").value || "1";
+                let price = row.cells[2].querySelector("input").value || "0.00";
+
+                text += `• ${qty}x ${name} (${kat}) - ${price} €\n`;
+            });
+
+            let gesamt = document.getElementById("gesamtpreis").textContent;
+            text += `\n*Gesamtsumme: ${gesamt}*`;
+
+            if (navigator.share) {
+                navigator.share({ title: 'Einkaufsliste', text: text });
+            } else {
+                navigator.clipboard.writeText(text);
+                alert("Einkaufsliste wurde in die Zwischenablage kopiert!");
+            }
         }
 
         function zeileLoeschen(button) {
@@ -162,7 +219,7 @@
         }
 
         function listeLeeren() {
-            if (confirm("Möchtest du die Einkaufsliste leeren? (Gespeicherte Artikelpreise bleiben erhalten)")) {
+            if (confirm("Möchtest du die Einkaufsliste leeren?")) {
                 document.getElementById("einkaufsTabelle").getElementsByTagName('tbody')[0].innerHTML = "";
                 berechneGesamtsumme();
             }
@@ -186,5 +243,7 @@
         }
     </script>
 
+</body>
+</html>
 </body>
 </html>
