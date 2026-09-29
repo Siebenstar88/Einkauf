@@ -13,6 +13,7 @@
         .btn-scan { width: 100%; padding: 14px; background-color: #198754; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
         .btn-action { width: 100%; padding: 10px; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 8px; color: white; }
         .btn-sort { background-color: #0d6efd; }
+        .btn-download { background-color: #6f42c1; }
         .btn-share { background-color: #0dcaf0; color: #000; }
         .btn-reset { background-color: #dc3545; }
         .btn-delete { background-color: #ff4d4d; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-weight: bold; }
@@ -26,6 +27,7 @@
         .qty-input { width: 35px !important; text-align: center; }
         .gram-input { width: 55px !important; }
         .price-input { width: 60px !important; }
+        .market-input { margin-bottom: 10px; font-weight: bold; }
         
         .price-change { font-size: 10px; font-weight: bold; margin-top: 2px; display: block; }
         .price-up { color: #dc3545; }
@@ -40,6 +42,9 @@
     <h2>🛒 Einkaufsliste & Preistracker</h2>
 
     <div class="card">
+        <label style="font-size: 12px; font-weight: bold; color: #555;">Supermarkt / Geschäft:</label>
+        <input type="text" id="supermarktName" class="market-input" placeholder="z.B. REWE, ALDI, Edeka..." oninput="speichereAktuelleListe()">
+        
         <button class="btn-scan" onclick="startScanner()">📷 Barcode Live Scannen</button>
         <div id="reader"></div>
     </div>
@@ -64,6 +69,7 @@
             Gesamtsumme: <span id="gesamtpreis">0,00 €</span>
         </div>
 
+        <button class="btn-action btn-download" onclick="listeHerunterladenCSV()">📥 Einkaufsliste herunterladen (CSV)</button>
         <button class="btn-action btn-share" onclick="listeTeilen()">📲 Liste teilen (WhatsApp/Mail)</button>
         <button class="btn-action btn-reset" onclick="listeLeeren()">🗑️ Liste leeren</button>
     </div>
@@ -71,7 +77,6 @@
     <script>
         let html5QrcodeScanner;
 
-        // Beim Laden der Seite automatisch gespeicherte Liste wiederherstellen
         document.addEventListener("DOMContentLoaded", ladeAktuelleListe);
 
         function startScanner() {
@@ -156,13 +161,13 @@
             let preisInput = parseFloat(row.cells[3].querySelector("input").value);
             let diffSpan = row.cells[3].querySelector(".price-change");
 
+            let marktName = document.getElementById("supermarktName").value;
+
             let altGramm = historienDaten.gramm;
             let altPreis = historienDaten.preis;
 
-            // Historie im LocalStorage aktualisieren
-            speichereProduktHistorie(barcode, nameInput, katSelect, grammInput, preisInput);
+            speichereProduktHistorie(barcode, nameInput, katSelect, grammInput, preisInput, marktName);
 
-            // Vergleich durchführen (Grundpreis pro 100g)
             if (!isNaN(preisInput) && !isNaN(grammInput) && grammInput > 0) {
                 let aktuellerGrundpreis = (preisInput / grammInput) * 100;
 
@@ -199,21 +204,22 @@
             }
         }
 
-        function speichereProduktHistorie(barcode, name, kat, gramm, preis) {
+        function speichereProduktHistorie(barcode, name, kat, gramm, preis, markt) {
             let gespeicherteDaten = JSON.parse(localStorage.getItem("prod_" + barcode)) || {};
             
             if (name !== null) gespeicherteDaten.name = name;
             if (kat !== null) gespeicherteDaten.kat = kat;
             if (gramm !== null && !isNaN(gramm)) gespeicherteDaten.gramm = gramm;
             if (preis !== null && !isNaN(preis)) gespeicherteDaten.preis = preis;
+            if (markt) gespeicherteDaten.markt = markt;
 
             localStorage.setItem("prod_" + barcode, JSON.stringify(gespeicherteDaten));
         }
 
-        // AKTUELLE LISTE ZWISCHENSPEICHERN (schützt vor App-Wechsel/Reload)
         function speichereAktuelleListe() {
             let rows = document.querySelectorAll("#einkaufsTabelle tbody tr");
             let einkaufsListe = [];
+            let marktName = document.getElementById("supermarktName").value;
 
             rows.forEach(row => {
                 let barcode = row.cells[0].querySelector(".barcode-sub").textContent.replace("Code: ", "").trim();
@@ -227,13 +233,17 @@
             });
 
             localStorage.setItem("aktuelle_einkaufsliste", JSON.stringify(einkaufsListe));
+            localStorage.setItem("aktueller_supermarkt", marktName);
         }
 
-        // AKTUELLE LISTE WIEDERHERSTELLEN
         function ladeAktuelleListe() {
+            let gespeicherterMarkt = localStorage.getItem("aktueller_supermarkt");
+            if (gespeicherterMarkt) {
+                document.getElementById("supermarktName").value = gespeicherterMarkt;
+            }
+
             let gespeicherteListe = JSON.parse(localStorage.getItem("aktuelle_einkaufsliste"));
             if (gespeicherteListe && gespeicherteListe.length > 0) {
-                // In umgekehrter Reihenfolge einfügen, damit die ursprüngliche Reihenfolge stimmt
                 gespeicherteListe.reverse().forEach(item => {
                     produktHinzufuegen(item.barcode, item);
                 });
@@ -254,6 +264,49 @@
             speichereAktuelleListe();
         }
 
+        // NEU: CSV-DATEI HERUNTERLADEN
+        function listeHerunterladenCSV() {
+            let rows = document.querySelectorAll("#einkaufsTabelle tbody tr");
+            if (rows.length === 0) {
+                alert("Die Liste ist leer!");
+                return;
+            }
+
+            let markt = document.getElementById("supermarktName").value || "Unbekannter Markt";
+            let datum = new Date().toLocaleDateString("de-DE");
+
+            // CSV Header mit Semikolon getrennt für deutsches Excel
+            let csvContent = "\uFEFFDatum;Supermarkt;Barcode;Artikelname;Kategorie;Menge;Gramm/ml;Einzelpreis (€);Gesamtpreis (€)\n";
+
+            rows.forEach(row => {
+                let barcode = row.cells[0].querySelector(".barcode-sub").textContent.replace("Code: ", "").trim();
+                let name = row.cells[0].querySelector("input[type='text']").value || "Unbenannt";
+                let kat = row.cells[0].querySelector("select").value;
+                let qty = parseInt(row.cells[1].querySelector("input").value) || 1;
+                let gramm = row.cells[2].querySelector("input").value || "-";
+                let price = parseFloat(row.cells[3].querySelector("input").value) || 0;
+                let rowTotal = (qty * price).toFixed(2).replace('.', ',');
+                let priceFormatted = price.toFixed(2).replace('.', ',');
+
+                csvContent += `"${datum}";"${markt}";"${barcode}";"${name}";"${kat}";"${qty}";"${gramm}";"${priceFormatted}";"${rowTotal}"\n`;
+            });
+
+            let gesamt = document.getElementById("gesamtpreis").textContent;
+            csvContent += `\n;;;;;;;Gesamtsumme:;"${gesamt}"\n`;
+
+            // Download als .csv auslösen
+            let blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+            let link = document.createElement("a");
+            let url = URL.createObjectURL(blob);
+            
+            let dateStr = new Date().toISOString().slice(0,10);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `Einkauf_${markt.replace(/[^a-z0-9]/gi, '_')}_${dateStr}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
         function listeTeilen() {
             let rows = document.querySelectorAll("#einkaufsTabelle tbody tr");
             if (rows.length === 0) {
@@ -261,7 +314,10 @@
                 return;
             }
 
-            let text = "🛒 *Meine Einkaufsliste:*\n\n";
+            let markt = document.getElementById("supermarktName").value;
+            let marktHeader = markt ? ` bei *${markt}*` : "";
+            let text = `🛒 *Meine Einkaufsliste${marktHeader}:*\n\n`;
+
             rows.forEach(row => {
                 let name = row.cells[0].querySelector("input[type='text']").value || "Unbenanntes Produkt";
                 let kat = row.cells[0].querySelector("select").value;
