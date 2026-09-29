@@ -24,6 +24,7 @@
         
         input, select { width: 100%; padding: 5px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         .qty-input { width: 35px !important; text-align: center; }
+        .gram-input { width: 55px !important; }
         .price-input { width: 60px !important; }
         
         .price-change { font-size: 10px; font-weight: bold; margin-top: 2px; display: block; }
@@ -51,7 +52,8 @@
                 <tr>
                     <th>Artikel / Kat.</th>
                     <th style="width: 35px;">Anz.</th>
-                    <th style="width: 65px;">Preis (€)</th>
+                    <th style="width: 55px;">Gramm</th>
+                    <th style="width: 60px;">Preis (€)</th>
                     <th style="width: 20px;"></th>
                 </tr>
             </thead>
@@ -88,13 +90,14 @@
             let gespeicherteDaten = JSON.parse(localStorage.getItem("prod_" + barcode)) || {};
             let altName = gespeicherteDaten.name || "";
             let altKat = gespeicherteDaten.kat || "Lebensmittel";
+            let altGramm = gespeicherteDaten.gramm !== undefined ? gespeicherteDaten.gramm : "";
             let altPreis = gespeicherteDaten.preis !== undefined ? gespeicherteDaten.preis : "";
 
             // Spalte 1: Name, Kategorie & Barcode
             let cell1 = newRow.insertCell(0);
             cell1.innerHTML = `
-                <input type="text" placeholder="Artikelname..." value="${altName}" oninput="speichereProdukt('${barcode}', this.value, null, null)">
-                <select onchange="speichereProdukt('${barcode}', null, this.value, null)" style="margin-top: 3px;">
+                <input type="text" placeholder="Artikelname..." value="${altName}" oninput="speichereProdukt('${barcode}', this.value, null, null, null)">
+                <select onchange="speichereProdukt('${barcode}', null, this.value, null, null)" style="margin-top: 3px;">
                     <option ${altKat === 'Lebensmittel' ? 'selected' : ''}>Lebensmittel</option>
                     <option ${altKat === 'Obst & Gemüse' ? 'selected' : ''}>Obst & Gemüse</option>
                     <option ${altKat === 'Getränke' ? 'selected' : ''}>Getränke</option>
@@ -105,52 +108,89 @@
                 <span class="barcode-sub">Code: ${barcode}</span>
             `;
 
-            // Spalte 2: Menge
+            // Spalte 2: Menge (Anzahl)
             let cell2 = newRow.insertCell(1);
             cell2.innerHTML = `<input type="number" class="qty-input" value="1" min="1" oninput="berechneGesamtsumme()">`;
 
-            // Spalte 3: Preis & Differenz
+            // Spalte 3: Gramm / ml
             let cell3 = newRow.insertCell(2);
             cell3.innerHTML = `
+                <input type="number" class="gram-input" placeholder="g/ml" value="${altGramm}"
+                       oninput="vergleicheUndSpeichere('${barcode}', this)">
+            `;
+
+            // Spalte 4: Preis & Vergleichs-Anzeige
+            let cell4 = newRow.insertCell(3);
+            cell4.innerHTML = `
                 <input type="number" step="0.01" class="price-input" placeholder="0.00" value="${altPreis}" 
-                       oninput="vergleicheUndSpeichere('${barcode}', this, ${altPreis !== "" ? altPreis : 'null'})">
+                       oninput="vergleicheUndSpeichere('${barcode}', this)">
                 <span class="price-change" id="diff_${barcode}"></span>
             `;
 
-            // Spalte 4: Löschen
-            let cell4 = newRow.insertCell(3);
-            cell4.innerHTML = `<button class="btn-delete" onclick="zeileLoeschen(this)">✕</button>`;
+            // Spalte 5: Löschen
+            let cell5 = newRow.insertCell(4);
+            cell5.innerHTML = `<button class="btn-delete" onclick="zeileLoeschen(this)">✕</button>`;
 
-            if (altPreis !== "") {
-                let inputElem = cell3.querySelector("input");
-                vergleicheUndSpeichere(barcode, inputElem, altPreis);
-            }
+            // Direkt vergleichen, falls alte Werte existieren
+            vergleicheUndSpeichere(barcode, null, gespeicherteDaten);
 
             berechneGesamtsumme();
         }
 
-        function vergleicheUndSpeichere(barcode, inputElem, altPreis) {
-            let neuerPreis = parseFloat(inputElem.value);
+        function vergleicheUndSpeichere(barcode, inputElem, direktDaten = null) {
+            let row;
+            if (inputElem) {
+                row = inputElem.closest("tr");
+            } else {
+                let tbody = document.querySelector("#einkaufsTabelle tbody");
+                row = tbody.rows[0];
+            }
+
+            let nameInput = row.cells[0].querySelector("input[type='text']").value;
+            let katSelect = row.cells[0].querySelector("select").value;
+            let grammInput = parseFloat(row.cells[2].querySelector("input").value);
+            let preisInput = parseFloat(row.cells[3].querySelector("input").value);
             let diffSpan = document.getElementById("diff_" + barcode);
 
-            if (!isNaN(neuerPreis)) {
-                let row = inputElem.closest("tr");
-                let nameInput = row.cells[0].querySelector("input[type='text']").value;
-                let katSelect = row.cells[0].querySelector("select").value;
-                
-                speichereProdukt(barcode, nameInput, katSelect, neuerPreis);
+            let gespeicherteDaten = direktDaten || JSON.parse(localStorage.getItem("prod_" + barcode)) || {};
+            let altGramm = gespeicherteDaten.gramm;
+            let altPreis = gespeicherteDaten.preis;
 
-                if (altPreis !== null && altPreis !== "" && !isNaN(altPreis)) {
-                    let diff = neuerPreis - parseFloat(altPreis);
-                    if (diff > 0) {
+            // Daten abspeichern
+            speichereProdukt(barcode, nameInput, katSelect, grammInput, preisInput);
+
+            // Vergleich durchführen
+            if (!isNaN(preisInput) && !isNaN(grammInput) && grammInput > 0) {
+                let aktuellerGrundpreis = (preisInput / grammInput) * 100; // Preis pro 100g
+
+                if (altPreis && altGramm && !isNaN(altPreis) && !isNaN(altGramm) && altGramm > 0) {
+                    let alterGrundpreis = (parseFloat(altPreis) / parseFloat(altGramm)) * 100;
+                    let diffGrundpreis = aktuellerGrundpreis - alterGrundpreis;
+
+                    if (diffGrundpreis > 0.005) {
                         diffSpan.className = "price-change price-up";
-                        diffSpan.textContent = `+${diff.toFixed(2).replace('.', ',')} €`;
-                    } else if (diff < 0) {
+                        diffSpan.textContent = `Teurer! (+${diffGrundpreis.toFixed(2).replace('.', ',')} €/100g)`;
+                    } else if (diffGrundpreis < -0.005) {
                         diffSpan.className = "price-change price-down";
-                        diffSpan.textContent = `${diff.toFixed(2).replace('.', ',')} €`;
+                        diffSpan.textContent = `Günstiger (${diffGrundpreis.toFixed(2).replace('.', ',')} €/100g)`;
                     } else {
-                        diffSpan.textContent = "";
+                        diffSpan.className = "price-change";
+                        diffSpan.textContent = "Preis unverändert";
                     }
+                } else {
+                    diffSpan.textContent = "";
+                }
+            } else if (!isNaN(preisInput) && altPreis && !isNaN(altPreis)) {
+                // Reiner Preisvergleich, falls keine Gramm angegeben wurden
+                let diff = preisInput - parseFloat(altPreis);
+                if (diff > 0) {
+                    diffSpan.className = "price-change price-up";
+                    diffSpan.textContent = `+${diff.toFixed(2).replace('.', ',')} € teurer`;
+                } else if (diff < 0) {
+                    diffSpan.className = "price-change price-down";
+                    diffSpan.textContent = `${diff.toFixed(2).replace('.', ',')} € günstiger`;
+                } else {
+                    diffSpan.textContent = "";
                 }
             } else {
                 diffSpan.textContent = "";
@@ -159,17 +199,17 @@
             berechneGesamtsumme();
         }
 
-        function speichereProdukt(barcode, name, kat, preis) {
+        function speichereProdukt(barcode, name, kat, gramm, preis) {
             let gespeicherteDaten = JSON.parse(localStorage.getItem("prod_" + barcode)) || {};
             
             if (name !== null) gespeicherteDaten.name = name;
             if (kat !== null) gespeicherteDaten.kat = kat;
+            if (gramm !== null && !isNaN(gramm)) gespeicherteDaten.gramm = gramm;
             if (preis !== null && !isNaN(preis)) gespeicherteDaten.preis = preis;
 
             localStorage.setItem("prod_" + barcode, JSON.stringify(gespeicherteDaten));
         }
 
-        // NEU: Sortieren nach Kategorien
         function nachKategorieSortieren() {
             let tbody = document.querySelector("#einkaufsTabelle tbody");
             let rows = Array.from(tbody.querySelectorAll("tr"));
@@ -183,7 +223,6 @@
             rows.forEach(row => tbody.appendChild(row));
         }
 
-        // NEU: Liste als Text teilen (z. B. WhatsApp)
         function listeTeilen() {
             let rows = document.querySelectorAll("#einkaufsTabelle tbody tr");
             if (rows.length === 0) {
@@ -196,9 +235,11 @@
                 let name = row.cells[0].querySelector("input[type='text']").value || "Unbenanntes Produkt";
                 let kat = row.cells[0].querySelector("select").value;
                 let qty = row.cells[1].querySelector("input").value || "1";
-                let price = row.cells[2].querySelector("input").value || "0.00";
+                let gramm = row.cells[2].querySelector("input").value;
+                let price = row.cells[3].querySelector("input").value || "0.00";
 
-                text += `• ${qty}x ${name} (${kat}) - ${price} €\n`;
+                let grammStr = gramm ? ` (${gramm}g)` : "";
+                text += `• ${qty}x ${name}${grammStr} [${kat}] - ${price} €\n`;
             });
 
             let gesamt = document.getElementById("gesamtpreis").textContent;
@@ -231,7 +272,7 @@
 
             rows.forEach(row => {
                 let qtyInput = row.cells[1].querySelector("input");
-                let priceInput = row.cells[2].querySelector("input");
+                let priceInput = row.cells[3].querySelector("input");
 
                 let qty = parseInt(qtyInput.value) || 1;
                 let price = parseFloat(priceInput.value) || 0;
