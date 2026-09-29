@@ -71,6 +71,9 @@
     <script>
         let html5QrcodeScanner;
 
+        // Beim Laden der Seite automatisch gespeicherte Liste wiederherstellen
+        document.addEventListener("DOMContentLoaded", ladeAktuelleListe);
+
         function startScanner() {
             html5QrcodeScanner = new Html5QrcodeScanner(
                 "reader", { fps: 10, qrbox: {width: 250, height: 150} }, false
@@ -83,21 +86,23 @@
             produktHinzufuegen(decodedText);
         }
 
-        function produktHinzufuegen(barcode) {
+        function produktHinzufuegen(barcode, bestehendeDaten = null) {
             let table = document.getElementById("einkaufsTabelle").getElementsByTagName('tbody')[0];
             let newRow = table.insertRow(0);
 
             let gespeicherteDaten = JSON.parse(localStorage.getItem("prod_" + barcode)) || {};
-            let altName = gespeicherteDaten.name || "";
-            let altKat = gespeicherteDaten.kat || "Lebensmittel";
-            let altGramm = gespeicherteDaten.gramm !== undefined ? gespeicherteDaten.gramm : "";
-            let altPreis = gespeicherteDaten.preis !== undefined ? gespeicherteDaten.preis : "";
+            
+            let altName = bestehendeDaten ? bestehendeDaten.name : (gespeicherteDaten.name || "");
+            let altKat = bestehendeDaten ? bestehendeDaten.kat : (gespeicherteDaten.kat || "Lebensmittel");
+            let altMenge = bestehendeDaten ? bestehendeDaten.menge : 1;
+            let altGramm = bestehendeDaten ? bestehendeDaten.gramm : (gespeicherteDaten.gramm !== undefined ? gespeicherteDaten.gramm : "");
+            let altPreis = bestehendeDaten ? bestehendeDaten.preis : (gespeicherteDaten.preis !== undefined ? gespeicherteDaten.preis : "");
 
             // Spalte 1: Name, Kategorie & Barcode
             let cell1 = newRow.insertCell(0);
             cell1.innerHTML = `
-                <input type="text" placeholder="Artikelname..." value="${altName}" oninput="speichereProdukt('${barcode}', this.value, null, null, null)">
-                <select onchange="speichereProdukt('${barcode}', null, this.value, null, null)" style="margin-top: 3px;">
+                <input type="text" placeholder="Artikelname..." value="${altName}" oninput="eingabeGeaendert('${barcode}', this)">
+                <select onchange="eingabeGeaendert('${barcode}', this)" style="margin-top: 3px;">
                     <option ${altKat === 'Lebensmittel' ? 'selected' : ''}>Lebensmittel</option>
                     <option ${altKat === 'Obst & Gemüse' ? 'selected' : ''}>Obst & Gemüse</option>
                     <option ${altKat === 'Getränke' ? 'selected' : ''}>Getränke</option>
@@ -110,20 +115,20 @@
 
             // Spalte 2: Menge (Anzahl)
             let cell2 = newRow.insertCell(1);
-            cell2.innerHTML = `<input type="number" class="qty-input" value="1" min="1" oninput="berechneGesamtsumme()">`;
+            cell2.innerHTML = `<input type="number" class="qty-input" value="${altMenge}" min="1" oninput="eingabeGeaendert('${barcode}', this)">`;
 
             // Spalte 3: Gramm / ml
             let cell3 = newRow.insertCell(2);
             cell3.innerHTML = `
                 <input type="number" class="gram-input" placeholder="g/ml" value="${altGramm}"
-                       oninput="vergleicheUndSpeichere('${barcode}', this)">
+                       oninput="eingabeGeaendert('${barcode}', this)">
             `;
 
             // Spalte 4: Preis & Vergleichs-Anzeige
             let cell4 = newRow.insertCell(3);
             cell4.innerHTML = `
                 <input type="number" step="0.01" class="price-input" placeholder="0.00" value="${altPreis}" 
-                       oninput="vergleicheUndSpeichere('${barcode}', this)">
+                       oninput="eingabeGeaendert('${barcode}', this)">
                 <span class="price-change" id="diff_${barcode}"></span>
             `;
 
@@ -131,37 +136,35 @@
             let cell5 = newRow.insertCell(4);
             cell5.innerHTML = `<button class="btn-delete" onclick="zeileLoeschen(this)">✕</button>`;
 
-            // Direkt vergleichen, falls alte Werte existieren
-            vergleicheUndSpeichere(barcode, null, gespeicherteDaten);
-
+            vergleicheUndSpeichere(barcode, newRow, gespeicherteDaten);
             berechneGesamtsumme();
+            speichereAktuelleListe();
         }
 
-        function vergleicheUndSpeichere(barcode, inputElem, direktDaten = null) {
-            let row;
-            if (inputElem) {
-                row = inputElem.closest("tr");
-            } else {
-                let tbody = document.querySelector("#einkaufsTabelle tbody");
-                row = tbody.rows[0];
-            }
+        function eingabeGeaendert(barcode, inputElem) {
+            let row = inputElem.closest("tr");
+            let gespeicherteDaten = JSON.parse(localStorage.getItem("prod_" + barcode)) || {};
+            vergleicheUndSpeichere(barcode, row, gespeicherteDaten);
+            berechneGesamtsumme();
+            speichereAktuelleListe();
+        }
 
+        function vergleicheUndSpeichere(barcode, row, historienDaten) {
             let nameInput = row.cells[0].querySelector("input[type='text']").value;
             let katSelect = row.cells[0].querySelector("select").value;
             let grammInput = parseFloat(row.cells[2].querySelector("input").value);
             let preisInput = parseFloat(row.cells[3].querySelector("input").value);
-            let diffSpan = document.getElementById("diff_" + barcode);
+            let diffSpan = row.cells[3].querySelector(".price-change");
 
-            let gespeicherteDaten = direktDaten || JSON.parse(localStorage.getItem("prod_" + barcode)) || {};
-            let altGramm = gespeicherteDaten.gramm;
-            let altPreis = gespeicherteDaten.preis;
+            let altGramm = historienDaten.gramm;
+            let altPreis = historienDaten.preis;
 
-            // Daten abspeichern
-            speichereProdukt(barcode, nameInput, katSelect, grammInput, preisInput);
+            // Historie im LocalStorage aktualisieren
+            speichereProduktHistorie(barcode, nameInput, katSelect, grammInput, preisInput);
 
-            // Vergleich durchführen
+            // Vergleich durchführen (Grundpreis pro 100g)
             if (!isNaN(preisInput) && !isNaN(grammInput) && grammInput > 0) {
-                let aktuellerGrundpreis = (preisInput / grammInput) * 100; // Preis pro 100g
+                let aktuellerGrundpreis = (preisInput / grammInput) * 100;
 
                 if (altPreis && altGramm && !isNaN(altPreis) && !isNaN(altGramm) && altGramm > 0) {
                     let alterGrundpreis = (parseFloat(altPreis) / parseFloat(altGramm)) * 100;
@@ -181,7 +184,6 @@
                     diffSpan.textContent = "";
                 }
             } else if (!isNaN(preisInput) && altPreis && !isNaN(altPreis)) {
-                // Reiner Preisvergleich, falls keine Gramm angegeben wurden
                 let diff = preisInput - parseFloat(altPreis);
                 if (diff > 0) {
                     diffSpan.className = "price-change price-up";
@@ -195,11 +197,9 @@
             } else {
                 diffSpan.textContent = "";
             }
-
-            berechneGesamtsumme();
         }
 
-        function speichereProdukt(barcode, name, kat, gramm, preis) {
+        function speichereProduktHistorie(barcode, name, kat, gramm, preis) {
             let gespeicherteDaten = JSON.parse(localStorage.getItem("prod_" + barcode)) || {};
             
             if (name !== null) gespeicherteDaten.name = name;
@@ -208,6 +208,36 @@
             if (preis !== null && !isNaN(preis)) gespeicherteDaten.preis = preis;
 
             localStorage.setItem("prod_" + barcode, JSON.stringify(gespeicherteDaten));
+        }
+
+        // AKTUELLE LISTE ZWISCHENSPEICHERN (schützt vor App-Wechsel/Reload)
+        function speichereAktuelleListe() {
+            let rows = document.querySelectorAll("#einkaufsTabelle tbody tr");
+            let einkaufsListe = [];
+
+            rows.forEach(row => {
+                let barcode = row.cells[0].querySelector(".barcode-sub").textContent.replace("Code: ", "").trim();
+                let name = row.cells[0].querySelector("input[type='text']").value;
+                let kat = row.cells[0].querySelector("select").value;
+                let menge = row.cells[1].querySelector("input").value;
+                let gramm = row.cells[2].querySelector("input").value;
+                let preis = row.cells[3].querySelector("input").value;
+
+                einkaufsListe.push({ barcode, name, kat, menge, gramm, preis });
+            });
+
+            localStorage.setItem("aktuelle_einkaufsliste", JSON.stringify(einkaufsListe));
+        }
+
+        // AKTUELLE LISTE WIEDERHERSTELLEN
+        function ladeAktuelleListe() {
+            let gespeicherteListe = JSON.parse(localStorage.getItem("aktuelle_einkaufsliste"));
+            if (gespeicherteListe && gespeicherteListe.length > 0) {
+                // In umgekehrter Reihenfolge einfügen, damit die ursprüngliche Reihenfolge stimmt
+                gespeicherteListe.reverse().forEach(item => {
+                    produktHinzufuegen(item.barcode, item);
+                });
+            }
         }
 
         function nachKategorieSortieren() {
@@ -221,6 +251,7 @@
             });
 
             rows.forEach(row => tbody.appendChild(row));
+            speichereAktuelleListe();
         }
 
         function listeTeilen() {
@@ -257,11 +288,13 @@
             let row = button.parentNode.parentNode;
             row.parentNode.removeChild(row);
             berechneGesamtsumme();
+            speichereAktuelleListe();
         }
 
         function listeLeeren() {
-            if (confirm("Möchtest du die Einkaufsliste leeren?")) {
+            if (confirm("Möchtest du die aktuelle Einkaufsliste wirklich leeren? (Die Preishistorie der Produkte bleibt erhalten)")) {
                 document.getElementById("einkaufsTabelle").getElementsByTagName('tbody')[0].innerHTML = "";
+                localStorage.removeItem("aktuelle_einkaufsliste");
                 berechneGesamtsumme();
             }
         }
