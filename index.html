@@ -14,6 +14,7 @@
         .btn-bakery { width: 100%; padding: 12px; background-color: #fd7e14; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 8px; }
         .btn-action { width: 100%; padding: 10px; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 8px; color: white; }
         .btn-sort { background-color: #0d6efd; }
+        .btn-stats { background-color: #20c997; }
         .btn-download { background-color: #6f42c1; }
         .btn-share { background-color: #0dcaf0; color: #000; }
         .btn-reset { background-color: #dc3545; }
@@ -33,11 +34,22 @@
         .price-change { font-size: 10px; font-weight: bold; margin-top: 2px; display: block; }
         .price-up { color: #dc3545; }
         .price-down { color: #198754; }
+        .price-compare { font-size: 9px; color: #0d6efd; display: block; margin-top: 2px; font-style: italic; }
         
         .total-box { font-size: 20px; font-weight: bold; text-align: right; margin-top: 15px; color: #0d6efd; }
         .barcode-sub { font-size: 9px; color: #6c757d; display: block; }
         .loading-status { font-size: 10px; color: #0d6efd; font-style: italic; display: block; }
         .unit-label { font-size: 10px; font-weight: bold; color: #0d6efd; text-align: center; display: block; margin-top: 2px; }
+
+        /* Abhaken-Modus Styling */
+        .completed-row { opacity: 0.4; text-decoration: line-through; background-color: #f8f9fa; }
+        .check-col { text-align: center; vertical-align: middle !important; }
+        .check-col input { width: 18px; height: 18px; cursor: pointer; }
+
+        /* Favoriten-Leiste */
+        .fav-container { display: flex; gap: 6px; overflow-x: auto; padding: 5px 0; margin-top: 8px; }
+        .fav-btn { background-color: #e9ecef; border: 1px solid #ced4da; border-radius: 15px; padding: 5px 12px; font-size: 11px; font-weight: bold; white-space: nowrap; cursor: pointer; color: #495057; }
+        .fav-btn:hover { background-color: #dee2e6; }
     </style>
 </head>
 <body>
@@ -51,14 +63,24 @@
         <button class="btn-scan" onclick="startScanner()">📷 Barcode Live Scannen</button>
         <button class="btn-bakery" onclick="loseBackwareHinzufuegen()">🥐 Lose Backware hinzufügen (ohne Barcode)</button>
         <div id="reader"></div>
+
+        <!-- Funktion 1: Favoriten / Schnellauswahl -->
+        <div style="margin-top: 10px;">
+            <label style="font-size: 11px; font-weight: bold; color: #6c757d;">⭐ Schnellauswahl (Favoriten):</label>
+            <div class="fav-container" id="favList">
+                <span style="font-size: 11px; color: #999;">Noch keine Favoriten gespeichert</span>
+            </div>
+        </div>
     </div>
 
     <div class="card">
         <button class="btn-action btn-sort" onclick="nachKategorieSortieren()">↕️ Nach Kategorien sortieren</button>
+        <button class="btn-action btn-stats" onclick="zeigeStatistik()">📊 Einkaufs-Statistik zeigen</button>
         
         <table id="einkaufsTabelle">
             <thead>
                 <tr>
+                    <th style="width: 25px;">✓</th>
                     <th>Artikel / Kat.</th>
                     <th style="width: 35px;">Anz.</th>
                     <th style="width: 55px;">Menge</th>
@@ -81,7 +103,10 @@
     <script>
         let html5QrcodeScanner;
 
-        document.addEventListener("DOMContentLoaded", ladeAktuelleListe);
+        document.addEventListener("DOMContentLoaded", () => {
+            ladeAktuelleListe();
+            ladeFavoriten();
+        });
 
         function startScanner() {
             html5QrcodeScanner = new Html5QrcodeScanner(
@@ -95,14 +120,11 @@
             produktHinzufuegen(decodedText);
         }
 
-        // Spezielle Funktion für lose Backwaren (Bäckerei/Backshop)
         function loseBackwareHinzufuegen() {
             let backwarenName = prompt("Name der Backware (z.B. Kaisersemmel, Breze):");
-            if (!backwarenName) return; // Abbrechen, falls nichts eingegeben wurde
+            if (!backwarenName) return;
 
             let pluNummer = prompt("PLU-Nummer / Code vom Schild (optional, sonst automatisch):", "");
-            
-            // Wenn eine PLU angegeben wurde, nutzen wir diese, sonst erzeugen wir einen internen Code "BACK-..."
             let code = pluNummer.trim() !== "" ? "PLU_" + pluNummer.trim() : "BACK_" + backwarenName.toLowerCase().replace(/\s+/g, '_');
 
             let gespeicherteDaten = JSON.parse(localStorage.getItem("prod_" + code)) || {};
@@ -129,9 +151,17 @@
             let altGramm = bestehendeDaten ? bestehendeDaten.gramm : (gespeicherteDaten.gramm !== undefined ? gespeicherteDaten.gramm : "");
             let altEinheit = bestehendeDaten ? bestehendeDaten.einheit : (gespeicherteDaten.einheit || (altKat === "Getränke" ? "ml" : "g"));
             let altPreis = bestehendeDaten ? bestehendeDaten.preis : (gespeicherteDaten.preis !== undefined ? gespeicherteDaten.preis : "");
+            let istErledigt = bestehendeDaten ? bestehendeDaten.erledigt : false;
+
+            if (istErledigt) newRow.classList.add("completed-row");
+
+            // Spalte 0: Funktion 3 - Checkbox für Abhaken-Modus
+            let cell0 = newRow.insertCell(0);
+            cell0.className = "check-col";
+            cell0.innerHTML = `<input type="checkbox" ${istErledigt ? 'checked' : ''} onchange="zeileAbhaken(this)">`;
 
             // Spalte 1: Name, Kategorie & Code/Barcode
-            let cell1 = newRow.insertCell(0);
+            let cell1 = newRow.insertCell(1);
             cell1.innerHTML = `
                 <input type="text" placeholder="Artikelname..." value="${altName}" oninput="eingabeGeaendert('${barcode}', this)">
                 <select onchange="kategorieGeaendert('${barcode}', this)" style="margin-top: 3px;">
@@ -149,43 +179,54 @@
             `;
 
             // Spalte 2: Menge (Anzahl)
-            let cell2 = newRow.insertCell(1);
+            let cell2 = newRow.insertCell(2);
             cell2.innerHTML = `<input type="number" class="qty-input" value="${altMenge}" min="1" oninput="eingabeGeaendert('${barcode}', this)">`;
 
             // Spalte 3: Menge in g / ml
-            let cell3 = newRow.insertCell(2);
+            let cell3 = newRow.insertCell(3);
             cell3.innerHTML = `
                 <input type="number" class="gram-input" placeholder="${altEinheit}" value="${altGramm}"
                        oninput="eingabeGeaendert('${barcode}', this)">
                 <span class="unit-label">${altEinheit}</span>
             `;
 
-            // Spalte 4: Preis & Vergleichs-Anzeige
-            let cell4 = newRow.insertCell(3);
+            // Spalte 4: Preis, Vergleichs-Anzeige & Supermarkt-Vergleich
+            let cell4 = newRow.insertCell(4);
             cell4.innerHTML = `
                 <input type="number" step="0.01" class="price-input" placeholder="0.00" value="${altPreis}" 
                        oninput="eingabeGeaendert('${barcode}', this)">
                 <span class="price-change" id="diff_${barcode}"></span>
+                <span class="price-compare" id="comp_${barcode}"></span>
             `;
 
             // Spalte 5: Löschen
-            let cell5 = newRow.insertCell(4);
+            let cell5 = newRow.insertCell(5);
             cell5.innerHTML = `<button class="btn-delete" onclick="zeileLoeschen(this)">✕</button>`;
 
             vergleicheUndSpeichere(barcode, newRow, gespeicherteDaten);
             berechneGesamtsumme();
             speichereAktuelleListe();
 
-            // Nur wenn es ein gescannter Online-Barcode ist (nicht manuell / Backware)
             if (!bestehendeDaten && (!altName || !altGramm) && !barcode.startsWith("BACK_") && !barcode.startsWith("PLU_")) {
                 await ladeProduktDatenVonOpenFoodFacts(barcode, newRow);
             }
         }
 
+        // Funktion 3: Zeile als erledigt abhaken
+        function zeileAbhaken(checkbox) {
+            let row = checkbox.closest("tr");
+            if (checkbox.checked) {
+                row.classList.add("completed-row");
+            } else {
+                row.classList.remove("completed-row");
+            }
+            speichereAktuelleListe();
+        }
+
         function kategorieGeaendert(barcode, selectElem) {
             let row = selectElem.closest("tr");
-            let einheitLabel = row.cells[2].querySelector(".unit-label");
-            let grammInput = row.cells[2].querySelector("input");
+            let einheitLabel = row.cells[3].querySelector(".unit-label");
+            let grammInput = row.cells[3].querySelector("input");
 
             if (selectElem.value === "Getränke") {
                 einheitLabel.textContent = "ml";
@@ -199,11 +240,11 @@
         }
 
         async function ladeProduktDatenVonOpenFoodFacts(barcode, row) {
-            let statusSpan = row.cells[0].querySelector(".loading-status");
-            let nameInput = row.cells[0].querySelector("input[type='text']");
-            let grammInput = row.cells[2].querySelector("input");
-            let einheitLabel = row.cells[2].querySelector(".unit-label");
-            let katSelect = row.cells[0].querySelector("select");
+            let statusSpan = row.cells[1].querySelector(".loading-status");
+            let nameInput = row.cells[1].querySelector("input[type='text']");
+            let grammInput = row.cells[3].querySelector("input");
+            let einheitLabel = row.cells[3].querySelector(".unit-label");
+            let katSelect = row.cells[1].querySelector("select");
 
             statusSpan.textContent = "⏳ Suche im Internet...";
 
@@ -291,25 +332,30 @@
             vergleicheUndSpeichere(barcode, row, gespeicherteDaten);
             berechneGesamtsumme();
             speichereAktuelleListe();
+            ladeFavoriten(); // Favoriten aktualisieren
         }
 
+        // Funktion 2: Supermarkt-Vergleich & Preis-Tracker
         function vergleicheUndSpeichere(barcode, row, historienDaten) {
-            let nameInput = row.cells[0].querySelector("input[type='text']").value;
-            let katSelect = row.cells[0].querySelector("select").value;
-            let grammInput = parseFloat(row.cells[2].querySelector("input").value);
-            let einheit = row.cells[2].querySelector(".unit-label").textContent;
-            let preisInput = parseFloat(row.cells[3].querySelector("input").value);
-            let diffSpan = row.cells[3].querySelector(".price-change");
+            let nameInput = row.cells[1].querySelector("input[type='text']").value;
+            let katSelect = row.cells[1].querySelector("select").value;
+            let grammInput = parseFloat(row.cells[3].querySelector("input").value);
+            let einheit = row.cells[3].querySelector(".unit-label").textContent;
+            let preisInput = parseFloat(row.cells[4].querySelector("input").value);
+            let diffSpan = row.cells[4].querySelector(".price-change");
+            let compSpan = row.cells[4].querySelector(".price-compare");
 
-            let marktName = document.getElementById("supermarktName").value;
+            let marktName = document.getElementById("supermarktName").value.trim();
 
             let altGramm = historienDaten.gramm;
             let altPreis = historienDaten.preis;
+            let altMarkt = historienDaten.markt || "";
 
             speichereProduktHistorie(barcode, nameInput, katSelect, grammInput, einheit, preisInput, marktName);
 
             let einheitText = einheit === "ml" ? "100ml" : "100g";
 
+            // Preisvergleich mit vorherigem Preis
             if (!isNaN(preisInput) && !isNaN(grammInput) && grammInput > 0) {
                 let aktuellerGrundpreis = (preisInput / grammInput) * 100;
 
@@ -344,6 +390,13 @@
             } else {
                 diffSpan.textContent = "";
             }
+
+            // Funktion 2: Supermarkt-Vergleich anzeigen
+            if (altMarkt && altPreis && marktName && altMarkt.toLowerCase() !== marktName.toLowerCase()) {
+                compSpan.textContent = `Zuletzt bei ${altMarkt}: ${parseFloat(altPreis).toFixed(2).replace('.', ',')} €`;
+            } else {
+                compSpan.textContent = "";
+            }
         }
 
         function speichereProduktHistorie(barcode, name, kat, gramm, einheit, preis, markt) {
@@ -359,21 +412,102 @@
             localStorage.setItem("prod_" + barcode, JSON.stringify(gespeicherteDaten));
         }
 
+        // Funktion 1: Favoriten-Leiste laden & darstellen
+        function ladeFavoriten() {
+            let favContainer = document.getElementById("favList");
+            favContainer.innerHTML = "";
+
+            let alleProdukte = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                let key = localStorage.key(i);
+                if (key.startsWith("prod_")) {
+                    let prod = JSON.parse(localStorage.getItem(key));
+                    if (prod && prod.name) {
+                        let barcode = key.replace("prod_", "");
+                        alleProdukte.push({ barcode, ...prod });
+                    }
+                }
+            }
+
+            if (alleProdukte.length === 0) {
+                favContainer.innerHTML = `<span style="font-size: 11px; color: #999;">Noch keine Favoriten gespeichert</span>`;
+                return;
+            }
+
+            // Die neuesten/meistgenutzten 8 Favoriten anzeigen
+            alleProdukte.slice(-8).reverse().forEach(prod => {
+                let btn = document.createElement("button");
+                btn.className = "fav-btn";
+                let preisStr = prod.preis ? ` (${parseFloat(prod.preis).toFixed(2).replace('.', ',')}€)` : "";
+                btn.textContent = `+ ${prod.name}${preisStr}`;
+                btn.onclick = () => {
+                    produktHinzufuegen(prod.barcode, {
+                        name: prod.name,
+                        kat: prod.kat || "Lebensmittel",
+                        menge: 1,
+                        gramm: prod.gramm || "",
+                        einheit: prod.einheit || "g",
+                        preis: prod.preis || ""
+                    });
+                };
+                favContainer.appendChild(btn);
+            });
+        }
+
+        // Funktion 4: Auswertung & Statistik anzeigen
+        function zeigeStatistik() {
+            let rows = document.querySelectorAll("#einkaufsTabelle tbody tr");
+            if (rows.length === 0) {
+                alert("Die Einkaufsliste ist aktuell leer.");
+                return;
+            }
+
+            let gesamtArtikel = 0;
+            let gesamtSumme = 0;
+            let kategorienZaehler = {};
+
+            rows.forEach(row => {
+                let qty = parseInt(row.cells[2].querySelector("input").value) || 1;
+                let price = parseFloat(row.cells[4].querySelector("input").value) || 0;
+                let kat = row.cells[1].querySelector("select").value;
+
+                gesamtArtikel += qty;
+                gesamtSumme += qty * price;
+                kategorienZaehler[kat] = (kategorienZaehler[kat] || 0) + qty;
+            });
+
+            let durchnittsPreis = gesamtArtikel > 0 ? (gesamtSumme / gesamtArtikel).toFixed(2).replace('.', ',') : "0,00";
+
+            let katText = "";
+            for (let [kat, anzahl] of Object.entries(kategorienZaehler)) {
+                katText += `\n- ${kat}: ${anzahl} Stück`;
+            }
+
+            alert(
+                `📊 EINKAUFS-STATISTIK:\n\n` +
+                `• Gesamtsumme: ${gesamtSumme.toFixed(2).replace('.', ',')} €\n` +
+                `• Artikelanzahl gesamt: ${gesamtArtikel} Stück\n` +
+                `• Durchschnittspreis pro Artikel: ${durchnittsPreis} €\n\n` +
+                `📦 Verteilung nach Kategorien:${katText}`
+            );
+        }
+
         function speichereAktuelleListe() {
             let rows = document.querySelectorAll("#einkaufsTabelle tbody tr");
             let einkaufsListe = [];
             let marktName = document.getElementById("supermarktName").value;
 
             rows.forEach(row => {
-                let barcode = row.cells[0].querySelector(".barcode-sub").textContent.replace("Code: ", "").trim();
-                let name = row.cells[0].querySelector("input[type='text']").value;
-                let kat = row.cells[0].querySelector("select").value;
-                let menge = row.cells[1].querySelector("input").value;
-                let gramm = row.cells[2].querySelector("input").value;
-                let einheit = row.cells[2].querySelector(".unit-label").textContent;
-                let preis = row.cells[3].querySelector("input").value;
+                let barcode = row.cells[1].querySelector(".barcode-sub").textContent.replace("Code: ", "").trim();
+                let name = row.cells[1].querySelector("input[type='text']").value;
+                let kat = row.cells[1].querySelector("select").value;
+                let menge = row.cells[2].querySelector("input").value;
+                let gramm = row.cells[3].querySelector("input").value;
+                let einheit = row.cells[3].querySelector(".unit-label").textContent;
+                let preis = row.cells[4].querySelector("input").value;
+                let erledigt = row.cells[0].querySelector("input[type='checkbox']").checked;
 
-                einkaufsListe.push({ barcode, name, kat, menge, gramm, einheit, preis });
+                einkaufsListe.push({ barcode, name, kat, menge, gramm, einheit, preis, erledigt });
             });
 
             localStorage.setItem("aktuelle_einkaufsliste", JSON.stringify(einkaufsListe));
@@ -399,8 +533,8 @@
             let rows = Array.from(tbody.querySelectorAll("tr"));
 
             rows.sort((a, b) => {
-                let katA = a.cells[0].querySelector("select").value;
-                let katB = b.cells[0].querySelector("select").value;
+                let katA = a.cells[1].querySelector("select").value;
+                let katB = b.cells[1].querySelector("select").value;
                 return katA.localeCompare(katB);
             });
 
@@ -418,20 +552,21 @@
             let markt = document.getElementById("supermarktName").value || "Unbekannter Markt";
             let datum = new Date().toLocaleDateString("de-DE");
 
-            let csvContent = "\uFEFFDatum;Supermarkt;Barcode;Artikelname;Kategorie;Anzahl;Menge;Einheit;Einzelpreis (€);Gesamtpreis (€)\n";
+            let csvContent = "\uFEFFDatum;Supermarkt;Barcode;Artikelname;Kategorie;Anzahl;Menge;Einheit;Einzelpreis (€);Gesamtpreis (€);Erledigt\n";
 
             rows.forEach(row => {
-                let barcode = row.cells[0].querySelector(".barcode-sub").textContent.replace("Code: ", "").trim();
-                let name = row.cells[0].querySelector("input[type='text']").value || "Unbenannt";
-                let kat = row.cells[0].querySelector("select").value;
-                let qty = parseInt(row.cells[1].querySelector("input").value) || 1;
-                let gramm = row.cells[2].querySelector("input").value || "-";
-                let einheit = row.cells[2].querySelector(".unit-label").textContent;
-                let price = parseFloat(row.cells[3].querySelector("input").value) || 0;
+                let barcode = row.cells[1].querySelector(".barcode-sub").textContent.replace("Code: ", "").trim();
+                let name = row.cells[1].querySelector("input[type='text']").value || "Unbenannt";
+                let kat = row.cells[1].querySelector("select").value;
+                let qty = parseInt(row.cells[2].querySelector("input").value) || 1;
+                let gramm = row.cells[3].querySelector("input").value || "-";
+                let einheit = row.cells[3].querySelector(".unit-label").textContent;
+                let price = parseFloat(row.cells[4].querySelector("input").value) || 0;
+                let erledigt = row.cells[0].querySelector("input[type='checkbox']").checked ? "Ja" : "Nein";
                 let rowTotal = (qty * price).toFixed(2).replace('.', ',');
                 let priceFormatted = price.toFixed(2).replace('.', ',');
 
-                csvContent += `"${datum}";"${markt}";"${barcode}";"${name}";"${kat}";"${qty}";"${gramm}";"${einheit}";"${priceFormatted}";"${rowTotal}"\n`;
+                csvContent += `"${datum}";"${markt}";"${barcode}";"${name}";"${kat}";"${qty}";"${gramm}";"${einheit}";"${priceFormatted}";"${rowTotal}";"${erledigt}"\n`;
             });
 
             let gesamt = document.getElementById("gesamtpreis").textContent;
@@ -461,15 +596,16 @@
             let text = `🛒 *Meine Einkaufsliste${marktHeader}:*\n\n`;
 
             rows.forEach(row => {
-                let name = row.cells[0].querySelector("input[type='text']").value || "Unbenanntes Produkt";
-                let kat = row.cells[0].querySelector("select").value;
-                let qty = row.cells[1].querySelector("input").value || "1";
-                let gramm = row.cells[2].querySelector("input").value;
-                let einheit = row.cells[2].querySelector(".unit-label").textContent;
-                let price = row.cells[3].querySelector("input").value || "0.00";
+                let name = row.cells[1].querySelector("input[type='text']").value || "Unbenanntes Produkt";
+                let kat = row.cells[1].querySelector("select").value;
+                let qty = row.cells[2].querySelector("input").value || "1";
+                let gramm = row.cells[3].querySelector("input").value;
+                let einheit = row.cells[3].querySelector(".unit-label").textContent;
+                let price = row.cells[4].querySelector("input").value || "0.00";
+                let erledigt = row.cells[0].querySelector("input[type='checkbox']").checked ? " [✓]" : "";
 
                 let grammStr = gramm ? ` (${gramm}${einheit})` : "";
-                text += `• ${qty}x ${name}${grammStr} [${kat}] - ${price} €\n`;
+                text += `• ${qty}x ${name}${grammStr} [${kat}] - ${price} €${erledigt}\n`;
             });
 
             let gesamt = document.getElementById("gesamtpreis").textContent;
@@ -503,8 +639,8 @@
             let total = 0;
 
             rows.forEach(row => {
-                let qtyInput = row.cells[1].querySelector("input");
-                let priceInput = row.cells[3].querySelector("input");
+                let qtyInput = row.cells[2].querySelector("input");
+                let priceInput = row.cells[4].querySelector("input");
 
                 let qty = parseInt(qtyInput.value) || 1;
                 let price = parseFloat(priceInput.value) || 0;
