@@ -11,6 +11,7 @@
         .card { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); margin-bottom: 15px; }
         
         .btn-scan { width: 100%; padding: 14px; background-color: #198754; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .btn-bakery { width: 100%; padding: 12px; background-color: #fd7e14; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 8px; }
         .btn-action { width: 100%; padding: 10px; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 8px; color: white; }
         .btn-sort { background-color: #0d6efd; }
         .btn-download { background-color: #6f42c1; }
@@ -48,6 +49,7 @@
         <input type="text" id="supermarktName" class="market-input" placeholder="z.B. REWE, ALDI, Edeka..." oninput="speichereAktuelleListe()">
         
         <button class="btn-scan" onclick="startScanner()">📷 Barcode Live Scannen</button>
+        <button class="btn-bakery" onclick="loseBackwareHinzufuegen()">🥐 Lose Backware hinzufügen (ohne Barcode)</button>
         <div id="reader"></div>
     </div>
 
@@ -93,6 +95,28 @@
             produktHinzufuegen(decodedText);
         }
 
+        // Spezielle Funktion für lose Backwaren (Bäckerei/Backshop)
+        function loseBackwareHinzufuegen() {
+            let backwarenName = prompt("Name der Backware (z.B. Kaisersemmel, Breze):");
+            if (!backwarenName) return; // Abbrechen, falls nichts eingegeben wurde
+
+            let pluNummer = prompt("PLU-Nummer / Code vom Schild (optional, sonst automatisch):", "");
+            
+            // Wenn eine PLU angegeben wurde, nutzen wir diese, sonst erzeugen wir einen internen Code "BACK-..."
+            let code = pluNummer.trim() !== "" ? "PLU_" + pluNummer.trim() : "BACK_" + backwarenName.toLowerCase().replace(/\s+/g, '_');
+
+            let gespeicherteDaten = JSON.parse(localStorage.getItem("prod_" + code)) || {};
+
+            produktHinzufuegen(code, {
+                name: backwarenName,
+                kat: "Backwaren",
+                menge: 1,
+                gramm: gespeicherteDaten.gramm || "",
+                einheit: "g",
+                preis: gespeicherteDaten.preis || ""
+            });
+        }
+
         async function produktHinzufuegen(barcode, bestehendeDaten = null) {
             let table = document.getElementById("einkaufsTabelle").getElementsByTagName('tbody')[0];
             let newRow = table.insertRow(0);
@@ -106,12 +130,13 @@
             let altEinheit = bestehendeDaten ? bestehendeDaten.einheit : (gespeicherteDaten.einheit || (altKat === "Getränke" ? "ml" : "g"));
             let altPreis = bestehendeDaten ? bestehendeDaten.preis : (gespeicherteDaten.preis !== undefined ? gespeicherteDaten.preis : "");
 
-            // Spalte 1: Name, Kategorie & Barcode
+            // Spalte 1: Name, Kategorie & Code/Barcode
             let cell1 = newRow.insertCell(0);
             cell1.innerHTML = `
                 <input type="text" placeholder="Artikelname..." value="${altName}" oninput="eingabeGeaendert('${barcode}', this)">
                 <select onchange="kategorieGeaendert('${barcode}', this)" style="margin-top: 3px;">
                     <option ${altKat === 'Lebensmittel' ? 'selected' : ''}>Lebensmittel</option>
+                    <option ${altKat === 'Backwaren' ? 'selected' : ''}>Backwaren</option>
                     <option ${altKat === 'Getränke' ? 'selected' : ''}>Getränke</option>
                     <option ${altKat === 'Dosen / Konserven' ? 'selected' : ''}>Dosen / Konserven</option>
                     <option ${altKat === 'Obst & Gemüse' ? 'selected' : ''}>Obst & Gemüse</option>
@@ -127,7 +152,7 @@
             let cell2 = newRow.insertCell(1);
             cell2.innerHTML = `<input type="number" class="qty-input" value="${altMenge}" min="1" oninput="eingabeGeaendert('${barcode}', this)">`;
 
-            // Spalte 3: Menge in g / ml (Dynamischer Platzhalter und Label)
+            // Spalte 3: Menge in g / ml
             let cell3 = newRow.insertCell(2);
             cell3.innerHTML = `
                 <input type="number" class="gram-input" placeholder="${altEinheit}" value="${altGramm}"
@@ -151,8 +176,8 @@
             berechneGesamtsumme();
             speichereAktuelleListe();
 
-            // Falls kein Name/Menge vorhanden ist (z. B. beim frischen Scannen), Online-Abfrage starten
-            if (!bestehendeDaten && (!altName || !altGramm)) {
+            // Nur wenn es ein gescannter Online-Barcode ist (nicht manuell / Backware)
+            if (!bestehendeDaten && (!altName || !altGramm) && !barcode.startsWith("BACK_") && !barcode.startsWith("PLU_")) {
                 await ladeProduktDatenVonOpenFoodFacts(barcode, newRow);
             }
         }
@@ -189,7 +214,6 @@
                 if (data.status === 1 && data.product) {
                     let prod = data.product;
 
-                    // Name & Marke ermitteln
                     let prodName = prod.product_name_de || prod.product_name || "";
                     let brand = prod.brands ? prod.brands.split(",")[0] : "";
                     let vollName = brand ? `${brand} ${prodName}` : prodName;
@@ -198,17 +222,13 @@
                         nameInput.value = vollName.trim();
                     }
 
-                    // Kategorien-Auswertung (Erweitert um Dosen und Getränke)
-                    let catsStr = (prod.categories_tags ? prod.categories_tags.join(" ") : "") + " " + (prod.categories || "");
-                    catsStr = catsStr.toLowerCase();
+                    let catsStr = ((prod.categories_tags ? prod.categories_tags.join(" ") : "") + " " + (prod.categories || "")).toLowerCase();
 
                     let istGetraenk = catsStr.includes("beverages") || catsStr.includes("drinks") || catsStr.includes("soda") || 
                                      catsStr.includes("juices") || catsStr.includes("bier") || catsStr.includes("beer") || 
-                                     catsStr.includes("water") || catsStr.includes("wasser") || catsStr.includes("sirup") ||
-                                     catsStr.includes("eistee") || catsStr.includes("limonade") || catsStr.includes("saft");
+                                     catsStr.includes("wasser") || catsStr.includes("limonade") || catsStr.includes("saft");
 
-                    let istDose = catsStr.includes("canned") || catsStr.includes("dosen") || catsStr.includes("konserven") || 
-                                  catsStr.includes("canned-foods") || catsStr.includes("tinned");
+                    let istDose = catsStr.includes("canned") || catsStr.includes("dosen") || catsStr.includes("konserven");
 
                     if (istGetraenk) {
                         katSelect.value = "Getränke";
@@ -222,61 +242,38 @@
                         katSelect.value = "Tiefkühl";
                     } else if (catsStr.includes("fruits") || catsStr.includes("vegetables") || catsStr.includes("gemüse") || catsStr.includes("obst")) {
                         katSelect.value = "Obst & Gemüse";
-                    } else if (catsStr.includes("non-food") || catsStr.includes("hygiene") || catsStr.includes("drogerie")) {
+                    } else if (catsStr.includes("bakery") || catsStr.includes("bread") || catsStr.includes("brot")) {
+                        katSelect.value = "Backwaren";
+                    } else if (catsStr.includes("non-food") || catsStr.includes("drogerie")) {
                         katSelect.value = "Drogerie";
                     }
 
-                    // Mengenangabe (g, ml, l, kg) ermitteln
                     if (!grammInput.value) {
-                        let mengeVal = null;
                         let rawQuantity = prod.quantity || "";
-
                         let match = rawQuantity.match(/(\d+[\.,]?\d*)\s*(g|ml|kg|l|cl|dl)/i);
                         if (match) {
                             let val = parseFloat(match[1].replace(',', '.'));
                             let einheit = match[2].toLowerCase();
 
-                            if (einheit === 'l') {
-                                val = val * 1000; // Umrechnung Liter in ml
-                                einheitLabel.textContent = "ml";
-                                grammInput.placeholder = "ml";
-                                katSelect.value = "Getränke";
-                            } else if (einheit === 'cl') {
-                                val = val * 10;
-                                einheitLabel.textContent = "ml";
-                                grammInput.placeholder = "ml";
-                                katSelect.value = "Getränke";
-                            } else if (einheit === 'dl') {
-                                val = val * 100;
-                                einheitLabel.textContent = "ml";
-                                grammInput.placeholder = "ml";
-                                katSelect.value = "Getränke";
-                            } else if (einheit === 'kg') {
-                                val = val * 1000; // Umrechnung kg in g
-                                einheitLabel.textContent = "g";
-                                grammInput.placeholder = "g";
-                            } else if (einheit === 'ml') {
+                            if (einheit === 'l' || einheit === 'cl' || einheit === 'dl' || einheit === 'ml') {
+                                if (einheit === 'l') val *= 1000;
+                                if (einheit === 'cl') val *= 10;
+                                if (einheit === 'dl') val *= 100;
                                 einheitLabel.textContent = "ml";
                                 grammInput.placeholder = "ml";
                                 katSelect.value = "Getränke";
                             } else {
+                                if (einheit === 'kg') val *= 1000;
                                 einheitLabel.textContent = "g";
                                 grammInput.placeholder = "g";
                             }
-                            mengeVal = val;
-                        } else if (prod.product_quantity) {
-                            mengeVal = parseFloat(prod.product_quantity);
-                        }
-
-                        if (mengeVal && !isNaN(mengeVal)) {
-                            grammInput.value = mengeVal;
+                            grammInput.value = val;
                         }
                     }
 
                     statusSpan.textContent = "✓ Gefunden";
                     setTimeout(() => { statusSpan.textContent = ""; }, 2500);
 
-                    // Eingaben aktualisieren & speichern
                     eingabeGeaendert(barcode, nameInput);
                 } else {
                     statusSpan.textContent = "❌ Nicht online gefunden";
