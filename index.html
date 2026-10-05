@@ -35,6 +35,7 @@
         
         .total-box { font-size: 20px; font-weight: bold; text-align: right; margin-top: 15px; color: #0d6efd; }
         .barcode-sub { font-size: 9px; color: #6c757d; display: block; }
+        .loading-status { font-size: 10px; color: #0d6efd; font-style: italic; display: block; }
     </style>
 </head>
 <body>
@@ -71,7 +72,7 @@
 
         <button class="btn-action btn-download" onclick="listeHerunterladenCSV()">📥 Einkaufsliste herunterladen (CSV)</button>
         <button class="btn-action btn-share" onclick="listeTeilen()">📲 Liste teilen (WhatsApp/Mail)</button>
-        <button class="btn-action btn-reset" onclick="listeLeeren()">🗑️ Liste leeren</button>
+        <button class="btn-action btn-reset" onclick="listeLeeren()">🗑️️ Liste leeren</button>
     </div>
 
     <script>
@@ -91,12 +92,12 @@
             produktHinzufuegen(decodedText);
         }
 
-        function produktHinzufuegen(barcode, bestehendeDaten = null) {
+        async function produktHinzufuegen(barcode, bestehendeDaten = null) {
             let table = document.getElementById("einkaufsTabelle").getElementsByTagName('tbody')[0];
             let newRow = table.insertRow(0);
 
             let gespeicherteDaten = JSON.parse(localStorage.getItem("prod_" + barcode)) || {};
-            
+
             let altName = bestehendeDaten ? bestehendeDaten.name : (gespeicherteDaten.name || "");
             let altKat = bestehendeDaten ? bestehendeDaten.kat : (gespeicherteDaten.kat || "Lebensmittel");
             let altMenge = bestehendeDaten ? bestehendeDaten.menge : 1;
@@ -116,6 +117,7 @@
                     <option ${altKat === 'Sonstiges' ? 'selected' : ''}>Sonstiges</option>
                 </select>
                 <span class="barcode-sub">Code: ${barcode}</span>
+                <span class="loading-status" id="status_${barcode}"></span>
             `;
 
             // Spalte 2: Menge (Anzahl)
@@ -144,6 +146,78 @@
             vergleicheUndSpeichere(barcode, newRow, gespeicherteDaten);
             berechneGesamtsumme();
             speichereAktuelleListe();
+
+            // Falls kein Name/Gramm vorhanden ist (z. B. beim frischen Scannen), Online-Abfrage starten
+            if (!bestehendeDaten && (!altName || !altGramm)) {
+                await ladeProduktDatenVonOpenFoodFacts(barcode, newRow);
+            }
+        }
+
+        async function ladeProduktDatenVonOpenFoodFacts(barcode, row) {
+            let statusSpan = row.cells[0].querySelector(".loading-status");
+            let nameInput = row.cells[0].querySelector("input[type='text']");
+            let grammInput = row.cells[2].querySelector("input");
+            let katSelect = row.cells[0].querySelector("select");
+
+            statusSpan.textContent = "⏳ Suche im Internet...";
+
+            try {
+                let response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json`);
+                let data = await response.json();
+
+                if (data.status === 1 && data.product) {
+                    let prod = data.product;
+
+                    // Name & Marke ermitteln
+                    let prodName = prod.product_name_de || prod.product_name || "";
+                    let brand = prod.brands ? prod.brands.split(",")[0] : "";
+                    let vollName = brand ? `${brand} ${prodName}` : prodName;
+
+                    if (vollName.trim() && !nameInput.value) {
+                        nameInput.value = vollName.trim();
+                    }
+
+                    // Mengenangabe (Gramm / ml) ermitteln
+                    if (!grammInput.value) {
+                        let mengeGramm = null;
+                        if (prod.product_quantity) {
+                            mengeGramm = parseFloat(prod.product_quantity);
+                        } else if (prod.quantity) {
+                            let match = prod.quantity.match(/(\d+[\.,]?\d*)\s*(g|ml|g|kg|l)/i);
+                            if (match) {
+                                let val = parseFloat(match[1].replace(',', '.'));
+                                let einheit = match[2].toLowerCase();
+                                if (einheit === 'kg' || einheit === 'l') val = val * 1000;
+                                mengeGramm = val;
+                            }
+                        }
+                        if (mengeGramm && !isNaN(mengeGramm)) {
+                            grammInput.value = mengeGramm;
+                        }
+                    }
+
+                    // Automatische Kategorisierung (einfache Zuordnung)
+                    if (prod.categories_tags) {
+                        let cats = prod.categories_tags.join(" ");
+                        if (cats.includes("beverages") || cats.includes("drinks")) katSelect.value = "Getränke";
+                        else if (cats.includes("frozen")) katSelect.value = "Tiefkühl";
+                        else if (cats.includes("fruits") || cats.includes("vegetables")) katSelect.value = "Obst & Gemüse";
+                        else if (cats.includes("non-food") || cats.includes("hygiene")) katSelect.value = "Drogerie";
+                    }
+
+                    statusSpan.textContent = "✓ Gefunden";
+                    setTimeout(() => { statusSpan.textContent = ""; }, 2500);
+
+                    // Eingaben aktualisieren & speichern
+                    eingabeGeaendert(barcode, nameInput);
+                } else {
+                    statusSpan.textContent = "❌ Nicht online gefunden";
+                    setTimeout(() => { statusSpan.textContent = ""; }, 2500);
+                }
+            } catch (err) {
+                console.error("Fehler beim Abrufen der Produktdaten:", err);
+                statusSpan.textContent = "";
+            }
         }
 
         function eingabeGeaendert(barcode, inputElem) {
@@ -264,7 +338,6 @@
             speichereAktuelleListe();
         }
 
-        // NEU: CSV-DATEI HERUNTERLADEN
         function listeHerunterladenCSV() {
             let rows = document.querySelectorAll("#einkaufsTabelle tbody tr");
             if (rows.length === 0) {
@@ -275,7 +348,6 @@
             let markt = document.getElementById("supermarktName").value || "Unbekannter Markt";
             let datum = new Date().toLocaleDateString("de-DE");
 
-            // CSV Header mit Semikolon getrennt für deutsches Excel
             let csvContent = "\uFEFFDatum;Supermarkt;Barcode;Artikelname;Kategorie;Menge;Gramm/ml;Einzelpreis (€);Gesamtpreis (€)\n";
 
             rows.forEach(row => {
@@ -294,7 +366,6 @@
             let gesamt = document.getElementById("gesamtpreis").textContent;
             csvContent += `\n;;;;;;;Gesamtsumme:;"${gesamt}"\n`;
 
-            // Download als .csv auslösen
             let blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
             let link = document.createElement("a");
             let url = URL.createObjectURL(blob);
