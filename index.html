@@ -26,7 +26,8 @@
         th, td { border-bottom: 1px solid #eee; padding: 8px 2px; text-align: left; vertical-align: top; }
         th { background-color: #0d6efd; color: white; font-size: 11px; }
         
-        input, select { width: 100%; padding: 5px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        input, select, textarea { width: 100%; padding: 6px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        textarea { resize: vertical; min-height: 70px; font-family: inherit; }
         .qty-input { width: 35px !important; text-align: center; }
         .gram-input { width: 55px !important; text-align: center; }
         .price-input { width: 60px !important; }
@@ -50,12 +51,12 @@
         .fav-container { display: flex; gap: 6px; overflow-x: auto; padding: 5px 0; margin-top: 8px; }
         .fav-btn { background-color: #e9ecef; border: 1px solid #ced4da; border-radius: 15px; padding: 5px 12px; font-size: 11px; font-weight: bold; white-space: nowrap; cursor: pointer; color: #495057; }
         
-        /* MHD status styling */
         .mhd-ok { color: #198754; font-weight: bold; }
         .mhd-warn { color: #fd7e14; font-weight: bold; }
         .mhd-expired { color: #dc3545; font-weight: bold; }
         
         .recipe-card { background: #eef2f5; padding: 10px; border-radius: 6px; margin-bottom: 8px; border-left: 4px solid #0d6efd; }
+        .import-box { background: #f8f9fa; border: 1px dashed #0d6efd; padding: 10px; border-radius: 6px; margin-bottom: 12px; }
     </style>
 </head>
 <body>
@@ -105,14 +106,24 @@
         <button class="btn-action btn-reset" onclick="listeLeeren()">🗑️ Liste leeren</button>
     </div>
 
-    <!-- PUNKT 4: REZEPT-INTEGRATION -->
+    <!-- REZEPT-INTEGRATION + KI / CHEFKOCH IMPORTER -->
     <div class="card">
-        <h3>🍽️️ Meine Rezepte</h3>
-        <button class="btn-action" style="background-color: #0d6efd;" onclick="neuesRezeptAnlegen()">➕ Neues Rezept erstellen</button>
+        <h3>🍽 Smart Rezept-Importer (Gemini / Chefkoch)</h3>
+        
+        <div class="import-box">
+            <label style="font-size: 11px; font-weight: bold; color: #333;">Rezept-Name:</label>
+            <input type="text" id="importRezeptName" placeholder="z.B. Gemüseeintopf von Gemini" style="margin-bottom: 6px;">
+            
+            <label style="font-size: 11px; font-weight: bold; color: #333;">Zutaten oder Text kopieren (aus Chefkoch/Gemini):</label>
+            <textarea id="importZutatenText" placeholder="Füge hier Zutaten ein, z. B.:&#10;500g Hackfleisch&#10;1 Dose Tomaten&#10;2 Zwiebeln&#10;oder den Text aus Chefkoch/Gemini..."></textarea>
+            
+            <button class="btn-action" style="background-color: #198754; margin-top: 6px;" onclick="rezeptImportieren()">✨ Rezept importieren & speichern</button>
+        </div>
+
         <div id="rezepteListe" style="margin-top: 10px;"></div>
     </div>
 
-    <!-- PUNKT 2: VORRATSKAMMER & MHD -->
+    <!-- VORRATSKAMMER & MHD -->
     <div class="card">
         <h3>🧊 Vorratskammer & MHD Tracker</h3>
         <p style="font-size: 11px; color: #6c757d; text-align: center; margin-top: -8px;">Gekaufte (abgehakte) Artikel landen hier automatisch.</p>
@@ -214,7 +225,6 @@
                 <span class="unit-label">${altEinheit}</span>
             `;
 
-            // Spalte 4: Preis, Preisverlauf & PUNKT 5 (Preisalarm / Zielpreis)
             let cell4 = newRow.insertCell(4);
             let targetPrice = gespeicherteDaten.zielpreis ? ` (Ziel: ${parseFloat(gespeicherteDaten.zielpreis).toFixed(2)}€)` : '';
             cell4.innerHTML = `
@@ -231,12 +241,11 @@
             berechneGesamtsumme();
             speichereAktuelleListe();
 
-            if (!bestehendeDaten && (!altName || !altGramm) && !barcode.startsWith("BACK_") && !barcode.startsWith("PLU_")) {
+            if (!bestehendeDaten && (!altName || !altGramm) && !barcode.startsWith("BACK_") && !barcode.startsWith("PLU_") && !barcode.startsWith("REZ_")) {
                 await ladeProduktDatenVonOpenFoodFacts(barcode, newRow);
             }
         }
 
-        // PUNKT 5: Zielpreis festlegen & Alarm
         function zielpreisSetzen(barcode) {
             let gespeicherteDaten = JSON.parse(localStorage.getItem("prod_" + barcode)) || {};
             let aktuellerZielpreis = gespeicherteDaten.zielpreis || "";
@@ -247,18 +256,16 @@
                 if (!isNaN(zielpreis)) {
                     gespeicherteDaten.zielpreis = zielpreis;
                     localStorage.setItem("prod_" + barcode, JSON.stringify(gespeicherteDaten));
-                    alert(`Zielpreis von ${zielpreis.toFixed(2).replace('.', ',')} € gespeichert! App alarmiert dich, wenn der Preis erreicht wird.`);
+                    alert(`Zielpreis von ${zielpreis.toFixed(2).replace('.', ',')} € gespeichert!`);
                     location.reload();
                 }
             }
         }
 
-        // PUNKT 2: Beim Abhaken automatisch in Vorratskammer übertragen
         function zeileAbhaken(checkbox, barcode) {
             let row = checkbox.closest("tr");
             if (checkbox.checked) {
                 row.classList.add("completed-row");
-                
                 let name = row.cells[1].querySelector("input[type='text']").value || "Unbenanntes Produkt";
                 inVorratEintragen(barcode, name);
             } else {
@@ -348,7 +355,6 @@
             ladeFavoriten();
         }
 
-        // PUNKT 5: Preis-Vergleich & Preisalarm-Prüfung
         function vergleicheUndSpeichere(barcode, row, historienDaten) {
             let nameInput = row.cells[1].querySelector("input[type='text']").value;
             let katSelect = row.cells[1].querySelector("select").value;
@@ -361,7 +367,6 @@
             let marktName = document.getElementById("supermarktName").value.trim();
             speichereProduktHistorie(barcode, nameInput, katSelect, grammInput, einheit, preisInput, marktName);
 
-            // Prüfen ob Zielpreis/Preisalarm erreicht ist (PUNKT 5)
             if (!isNaN(preisInput) && historienDaten.zielpreis && preisInput <= parseFloat(historienDaten.zielpreis)) {
                 diffSpan.className = "price-deal";
                 diffSpan.textContent = `🔥 ANGEBOT! (≤ ${parseFloat(historienDaten.zielpreis).toFixed(2)}€)`;
@@ -402,11 +407,9 @@
             localStorage.setItem("prod_" + barcode, JSON.stringify(gespeicherteDaten));
         }
 
-        // PUNKT 2: Vorratskammer-Logik
+        // Vorratskammer-Logik
         function inVorratEintragen(barcode, name) {
             let vorraete = JSON.parse(localStorage.getItem("vorratskammer")) || [];
-            
-            // Standardmäßig 7 Tage Haltbarkeit vorschlagen
             let in7Tagen = new Date();
             in7Tagen.setDate(in7Tagen.getDate() + 7);
             let defaultDatum = in7Tagen.toISOString().slice(0, 10);
@@ -425,7 +428,6 @@
 
             vorraete.forEach(item => {
                 let row = tbody.insertRow();
-                
                 let statusText = "OK";
                 let statusClass = "mhd-ok";
 
@@ -463,20 +465,42 @@
             ladeVorraete();
         }
 
-        // PUNKT 4: Rezepte-Logik
-        function neuesRezeptAnlegen() {
-            let rezeptName = prompt("Name des Rezepts (z.B. Spaghetti Bolognese):");
-            if (!rezeptName) return;
+        // SMART REZEPT IMPORTER (GEMINI & CHEFKOCH)
+        function rezeptImportieren() {
+            let name = document.getElementById("importRezeptName").value.trim() || "Neues Rezept";
+            let rawText = document.getElementById("importZutatenText").value;
 
-            let zutatenStr = prompt("Zutaten komma-getrennt eingeben (z.B. Hackfleisch, Tomaten, Nudeln):");
-            if (!zutatenStr) return;
+            if (!rawText.trim()) {
+                alert("Bitte füge zuerst den Rezepttext oder Zutaten ein!");
+                return;
+            }
 
-            let zutaten = zutatenStr.split(",").map(z => z.trim()).filter(z => z.length > 0);
+            // Zeilenweise spalten & säubern
+            let zeilen = rawText.split(/\r?\n/);
+            let zutaten = [];
+
+            zeilen.forEach(zeile => {
+                let sauber = zeile.replace(/^[-•*–\d+\.]+\s*/, '').trim(); // Aufzählungspunkte entfernen
+                if (sauber.length > 2) {
+                    zutaten.push(sauber);
+                }
+            });
+
+            if (zutaten.length === 0) {
+                alert("Keine gültigen Zutaten erkannt.");
+                return;
+            }
 
             let rezepte = JSON.parse(localStorage.getItem("rezepte")) || [];
-            rezepte.push({ id: Date.now(), name: rezeptName, zutaten: zutaten });
+            rezepte.push({ id: Date.now(), name: name, zutaten: zutaten });
             localStorage.setItem("rezepte", JSON.stringify(rezepte));
+
+            // Felder leeren
+            document.getElementById("importRezeptName").value = "";
+            document.getElementById("importZutatenText").value = "";
+
             ladeRezepte();
+            alert(`Rezept "${name}" mit ${zutaten.length} Zutaten erfolgreich gespeichert!`);
         }
 
         function ladeRezepte() {
@@ -489,7 +513,7 @@
                 return;
             }
 
-            rezepte.forEach(r => {
+            rezepte.reverse().forEach(r => {
                 let card = document.createElement("div");
                 card.className = "recipe-card";
                 card.innerHTML = `
@@ -510,13 +534,27 @@
             if (!rezept) return;
 
             rezept.zutaten.forEach(zutat => {
-                let code = "REZ_" + zutat.toLowerCase().replace(/\s+/g, '_');
+                // Versuche Menge/Einheit zu parsen (z.B. "500g Hackfleisch")
+                let match = zutat.match(/^(\d+[\.,]?\d*)\s*(g|ml|kg|l|Stück)?\s+(.*)/i);
+                
+                let mengev = "";
+                let einheitv = "g";
+                let namev = zutat;
+
+                if (match) {
+                    mengev = match[1];
+                    einheitv = match[2] ? match[2].toLowerCase() : "g";
+                    namev = match[3];
+                }
+
+                let code = "REZ_" + namev.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+
                 produktHinzufuegen(code, {
-                    name: zutat,
+                    name: namev,
                     kat: "Lebensmittel",
                     menge: 1,
-                    gramm: "",
-                    einheit: "g",
+                    gramm: mengev,
+                    einheit: einheitv,
                     preis: ""
                 });
             });
