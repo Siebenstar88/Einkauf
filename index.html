@@ -25,7 +25,7 @@
         
         input, select { width: 100%; padding: 5px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         .qty-input { width: 35px !important; text-align: center; }
-        .gram-input { width: 55px !important; }
+        .gram-input { width: 55px !important; text-align: center; }
         .price-input { width: 60px !important; }
         .market-input { margin-bottom: 10px; font-weight: bold; }
         
@@ -36,7 +36,7 @@
         .total-box { font-size: 20px; font-weight: bold; text-align: right; margin-top: 15px; color: #0d6efd; }
         .barcode-sub { font-size: 9px; color: #6c757d; display: block; }
         .loading-status { font-size: 10px; color: #0d6efd; font-style: italic; display: block; }
-        .unit-label { font-size: 9px; color: #6c757d; text-align: center; display: block; }
+        .unit-label { font-size: 10px; font-weight: bold; color: #0d6efd; text-align: center; display: block; margin-top: 2px; }
     </style>
 </head>
 <body>
@@ -103,7 +103,7 @@
             let altKat = bestehendeDaten ? bestehendeDaten.kat : (gespeicherteDaten.kat || "Lebensmittel");
             let altMenge = bestehendeDaten ? bestehendeDaten.menge : 1;
             let altGramm = bestehendeDaten ? bestehendeDaten.gramm : (gespeicherteDaten.gramm !== undefined ? gespeicherteDaten.gramm : "");
-            let altEinheit = bestehendeDaten ? bestehendeDaten.einheit : (gespeicherteDaten.einheit || "g");
+            let altEinheit = bestehendeDaten ? bestehendeDaten.einheit : (gespeicherteDaten.einheit || (altKat === "Getränke" ? "ml" : "g"));
             let altPreis = bestehendeDaten ? bestehendeDaten.preis : (gespeicherteDaten.preis !== undefined ? gespeicherteDaten.preis : "");
 
             // Spalte 1: Name, Kategorie & Barcode
@@ -127,7 +127,7 @@
             let cell2 = newRow.insertCell(1);
             cell2.innerHTML = `<input type="number" class="qty-input" value="${altMenge}" min="1" oninput="eingabeGeaendert('${barcode}', this)">`;
 
-            // Spalte 3: Menge in g / ml
+            // Spalte 3: Menge in g / ml (Dynamischer Platzhalter und Label)
             let cell3 = newRow.insertCell(2);
             cell3.innerHTML = `
                 <input type="number" class="gram-input" placeholder="${altEinheit}" value="${altGramm}"
@@ -204,7 +204,8 @@
 
                     let istGetraenk = catsStr.includes("beverages") || catsStr.includes("drinks") || catsStr.includes("soda") || 
                                      catsStr.includes("juices") || catsStr.includes("bier") || catsStr.includes("beer") || 
-                                     catsStr.includes("water") || catsStr.includes("wasser") || catsStr.includes("sirup");
+                                     catsStr.includes("water") || catsStr.includes("wasser") || catsStr.includes("sirup") ||
+                                     catsStr.includes("eistee") || catsStr.includes("limonade") || catsStr.includes("saft");
 
                     let istDose = catsStr.includes("canned") || catsStr.includes("dosen") || catsStr.includes("konserven") || 
                                   catsStr.includes("canned-foods") || catsStr.includes("tinned");
@@ -238,20 +239,29 @@
                             if (einheit === 'l') {
                                 val = val * 1000; // Umrechnung Liter in ml
                                 einheitLabel.textContent = "ml";
+                                grammInput.placeholder = "ml";
                                 katSelect.value = "Getränke";
                             } else if (einheit === 'cl') {
                                 val = val * 10;
                                 einheitLabel.textContent = "ml";
+                                grammInput.placeholder = "ml";
+                                katSelect.value = "Getränke";
                             } else if (einheit === 'dl') {
                                 val = val * 100;
                                 einheitLabel.textContent = "ml";
+                                grammInput.placeholder = "ml";
+                                katSelect.value = "Getränke";
                             } else if (einheit === 'kg') {
                                 val = val * 1000; // Umrechnung kg in g
                                 einheitLabel.textContent = "g";
+                                grammInput.placeholder = "g";
                             } else if (einheit === 'ml') {
                                 einheitLabel.textContent = "ml";
+                                grammInput.placeholder = "ml";
+                                katSelect.value = "Getränke";
                             } else {
                                 einheitLabel.textContent = "g";
+                                grammInput.placeholder = "g";
                             }
                             mengeVal = val;
                         } else if (prod.product_quantity) {
