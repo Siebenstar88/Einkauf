@@ -36,6 +36,7 @@
         .total-box { font-size: 20px; font-weight: bold; text-align: right; margin-top: 15px; color: #0d6efd; }
         .barcode-sub { font-size: 9px; color: #6c757d; display: block; }
         .loading-status { font-size: 10px; color: #0d6efd; font-style: italic; display: block; }
+        .unit-label { font-size: 9px; color: #6c757d; text-align: center; display: block; }
     </style>
 </head>
 <body>
@@ -58,7 +59,7 @@
                 <tr>
                     <th>Artikel / Kat.</th>
                     <th style="width: 35px;">Anz.</th>
-                    <th style="width: 55px;">Gramm</th>
+                    <th style="width: 55px;">Menge</th>
                     <th style="width: 60px;">Preis (€)</th>
                     <th style="width: 20px;"></th>
                 </tr>
@@ -72,7 +73,7 @@
 
         <button class="btn-action btn-download" onclick="listeHerunterladenCSV()">📥 Einkaufsliste herunterladen (CSV)</button>
         <button class="btn-action btn-share" onclick="listeTeilen()">📲 Liste teilen (WhatsApp/Mail)</button>
-        <button class="btn-action btn-reset" onclick="listeLeeren()">🗑️️ Liste leeren</button>
+        <button class="btn-action btn-reset" onclick="listeLeeren()">🗑️ Liste leeren</button>
     </div>
 
     <script>
@@ -102,16 +103,18 @@
             let altKat = bestehendeDaten ? bestehendeDaten.kat : (gespeicherteDaten.kat || "Lebensmittel");
             let altMenge = bestehendeDaten ? bestehendeDaten.menge : 1;
             let altGramm = bestehendeDaten ? bestehendeDaten.gramm : (gespeicherteDaten.gramm !== undefined ? gespeicherteDaten.gramm : "");
+            let altEinheit = bestehendeDaten ? bestehendeDaten.einheit : (gespeicherteDaten.einheit || "g");
             let altPreis = bestehendeDaten ? bestehendeDaten.preis : (gespeicherteDaten.preis !== undefined ? gespeicherteDaten.preis : "");
 
             // Spalte 1: Name, Kategorie & Barcode
             let cell1 = newRow.insertCell(0);
             cell1.innerHTML = `
                 <input type="text" placeholder="Artikelname..." value="${altName}" oninput="eingabeGeaendert('${barcode}', this)">
-                <select onchange="eingabeGeaendert('${barcode}', this)" style="margin-top: 3px;">
+                <select onchange="kategorieGeaendert('${barcode}', this)" style="margin-top: 3px;">
                     <option ${altKat === 'Lebensmittel' ? 'selected' : ''}>Lebensmittel</option>
-                    <option ${altKat === 'Obst & Gemüse' ? 'selected' : ''}>Obst & Gemüse</option>
                     <option ${altKat === 'Getränke' ? 'selected' : ''}>Getränke</option>
+                    <option ${altKat === 'Dosen / Konserven' ? 'selected' : ''}>Dosen / Konserven</option>
+                    <option ${altKat === 'Obst & Gemüse' ? 'selected' : ''}>Obst & Gemüse</option>
                     <option ${altKat === 'Drogerie' ? 'selected' : ''}>Drogerie</option>
                     <option ${altKat === 'Tiefkühl' ? 'selected' : ''}>Tiefkühl</option>
                     <option ${altKat === 'Sonstiges' ? 'selected' : ''}>Sonstiges</option>
@@ -124,11 +127,12 @@
             let cell2 = newRow.insertCell(1);
             cell2.innerHTML = `<input type="number" class="qty-input" value="${altMenge}" min="1" oninput="eingabeGeaendert('${barcode}', this)">`;
 
-            // Spalte 3: Gramm / ml
+            // Spalte 3: Menge in g / ml
             let cell3 = newRow.insertCell(2);
             cell3.innerHTML = `
-                <input type="number" class="gram-input" placeholder="g/ml" value="${altGramm}"
+                <input type="number" class="gram-input" placeholder="${altEinheit}" value="${altGramm}"
                        oninput="eingabeGeaendert('${barcode}', this)">
+                <span class="unit-label">${altEinheit}</span>
             `;
 
             // Spalte 4: Preis & Vergleichs-Anzeige
@@ -147,16 +151,33 @@
             berechneGesamtsumme();
             speichereAktuelleListe();
 
-            // Falls kein Name/Gramm vorhanden ist (z. B. beim frischen Scannen), Online-Abfrage starten
+            // Falls kein Name/Menge vorhanden ist (z. B. beim frischen Scannen), Online-Abfrage starten
             if (!bestehendeDaten && (!altName || !altGramm)) {
                 await ladeProduktDatenVonOpenFoodFacts(barcode, newRow);
             }
+        }
+
+        function kategorieGeaendert(barcode, selectElem) {
+            let row = selectElem.closest("tr");
+            let einheitLabel = row.cells[2].querySelector(".unit-label");
+            let grammInput = row.cells[2].querySelector("input");
+
+            if (selectElem.value === "Getränke") {
+                einheitLabel.textContent = "ml";
+                grammInput.placeholder = "ml";
+            } else {
+                einheitLabel.textContent = "g";
+                grammInput.placeholder = "g";
+            }
+
+            eingabeGeaendert(barcode, selectElem);
         }
 
         async function ladeProduktDatenVonOpenFoodFacts(barcode, row) {
             let statusSpan = row.cells[0].querySelector(".loading-status");
             let nameInput = row.cells[0].querySelector("input[type='text']");
             let grammInput = row.cells[2].querySelector("input");
+            let einheitLabel = row.cells[2].querySelector(".unit-label");
             let katSelect = row.cells[0].querySelector("select");
 
             statusSpan.textContent = "⏳ Suche im Internet...";
@@ -177,32 +198,69 @@
                         nameInput.value = vollName.trim();
                     }
 
-                    // Mengenangabe (Gramm / ml) ermitteln
-                    if (!grammInput.value) {
-                        let mengeGramm = null;
-                        if (prod.product_quantity) {
-                            mengeGramm = parseFloat(prod.product_quantity);
-                        } else if (prod.quantity) {
-                            let match = prod.quantity.match(/(\d+[\.,]?\d*)\s*(g|ml|g|kg|l)/i);
-                            if (match) {
-                                let val = parseFloat(match[1].replace(',', '.'));
-                                let einheit = match[2].toLowerCase();
-                                if (einheit === 'kg' || einheit === 'l') val = val * 1000;
-                                mengeGramm = val;
-                            }
-                        }
-                        if (mengeGramm && !isNaN(mengeGramm)) {
-                            grammInput.value = mengeGramm;
-                        }
+                    // Kategorien-Auswertung (Erweitert um Dosen und Getränke)
+                    let catsStr = (prod.categories_tags ? prod.categories_tags.join(" ") : "") + " " + (prod.categories || "");
+                    catsStr = catsStr.toLowerCase();
+
+                    let istGetraenk = catsStr.includes("beverages") || catsStr.includes("drinks") || catsStr.includes("soda") || 
+                                     catsStr.includes("juices") || catsStr.includes("bier") || catsStr.includes("beer") || 
+                                     catsStr.includes("water") || catsStr.includes("wasser") || catsStr.includes("sirup");
+
+                    let istDose = catsStr.includes("canned") || catsStr.includes("dosen") || catsStr.includes("konserven") || 
+                                  catsStr.includes("canned-foods") || catsStr.includes("tinned");
+
+                    if (istGetraenk) {
+                        katSelect.value = "Getränke";
+                        einheitLabel.textContent = "ml";
+                        grammInput.placeholder = "ml";
+                    } else if (istDose) {
+                        katSelect.value = "Dosen / Konserven";
+                        einheitLabel.textContent = "g";
+                        grammInput.placeholder = "g";
+                    } else if (catsStr.includes("frozen") || catsStr.includes("tiefkühl")) {
+                        katSelect.value = "Tiefkühl";
+                    } else if (catsStr.includes("fruits") || catsStr.includes("vegetables") || catsStr.includes("gemüse") || catsStr.includes("obst")) {
+                        katSelect.value = "Obst & Gemüse";
+                    } else if (catsStr.includes("non-food") || catsStr.includes("hygiene") || catsStr.includes("drogerie")) {
+                        katSelect.value = "Drogerie";
                     }
 
-                    // Automatische Kategorisierung (einfache Zuordnung)
-                    if (prod.categories_tags) {
-                        let cats = prod.categories_tags.join(" ");
-                        if (cats.includes("beverages") || cats.includes("drinks")) katSelect.value = "Getränke";
-                        else if (cats.includes("frozen")) katSelect.value = "Tiefkühl";
-                        else if (cats.includes("fruits") || cats.includes("vegetables")) katSelect.value = "Obst & Gemüse";
-                        else if (cats.includes("non-food") || cats.includes("hygiene")) katSelect.value = "Drogerie";
+                    // Mengenangabe (g, ml, l, kg) ermitteln
+                    if (!grammInput.value) {
+                        let mengeVal = null;
+                        let rawQuantity = prod.quantity || "";
+
+                        let match = rawQuantity.match(/(\d+[\.,]?\d*)\s*(g|ml|kg|l|cl|dl)/i);
+                        if (match) {
+                            let val = parseFloat(match[1].replace(',', '.'));
+                            let einheit = match[2].toLowerCase();
+
+                            if (einheit === 'l') {
+                                val = val * 1000; // Umrechnung Liter in ml
+                                einheitLabel.textContent = "ml";
+                                katSelect.value = "Getränke";
+                            } else if (einheit === 'cl') {
+                                val = val * 10;
+                                einheitLabel.textContent = "ml";
+                            } else if (einheit === 'dl') {
+                                val = val * 100;
+                                einheitLabel.textContent = "ml";
+                            } else if (einheit === 'kg') {
+                                val = val * 1000; // Umrechnung kg in g
+                                einheitLabel.textContent = "g";
+                            } else if (einheit === 'ml') {
+                                einheitLabel.textContent = "ml";
+                            } else {
+                                einheitLabel.textContent = "g";
+                            }
+                            mengeVal = val;
+                        } else if (prod.product_quantity) {
+                            mengeVal = parseFloat(prod.product_quantity);
+                        }
+
+                        if (mengeVal && !isNaN(mengeVal)) {
+                            grammInput.value = mengeVal;
+                        }
                     }
 
                     statusSpan.textContent = "✓ Gefunden";
@@ -232,6 +290,7 @@
             let nameInput = row.cells[0].querySelector("input[type='text']").value;
             let katSelect = row.cells[0].querySelector("select").value;
             let grammInput = parseFloat(row.cells[2].querySelector("input").value);
+            let einheit = row.cells[2].querySelector(".unit-label").textContent;
             let preisInput = parseFloat(row.cells[3].querySelector("input").value);
             let diffSpan = row.cells[3].querySelector(".price-change");
 
@@ -240,7 +299,9 @@
             let altGramm = historienDaten.gramm;
             let altPreis = historienDaten.preis;
 
-            speichereProduktHistorie(barcode, nameInput, katSelect, grammInput, preisInput, marktName);
+            speichereProduktHistorie(barcode, nameInput, katSelect, grammInput, einheit, preisInput, marktName);
+
+            let einheitText = einheit === "ml" ? "100ml" : "100g";
 
             if (!isNaN(preisInput) && !isNaN(grammInput) && grammInput > 0) {
                 let aktuellerGrundpreis = (preisInput / grammInput) * 100;
@@ -251,10 +312,10 @@
 
                     if (diffGrundpreis > 0.005) {
                         diffSpan.className = "price-change price-up";
-                        diffSpan.textContent = `Teurer! (+${diffGrundpreis.toFixed(2).replace('.', ',')} €/100g)`;
+                        diffSpan.textContent = `Teurer! (+${diffGrundpreis.toFixed(2).replace('.', ',')} €/${einheitText})`;
                     } else if (diffGrundpreis < -0.005) {
                         diffSpan.className = "price-change price-down";
-                        diffSpan.textContent = `Günstiger (${diffGrundpreis.toFixed(2).replace('.', ',')} €/100g)`;
+                        diffSpan.textContent = `Günstiger (${diffGrundpreis.toFixed(2).replace('.', ',')} €/${einheitText})`;
                     } else {
                         diffSpan.className = "price-change";
                         diffSpan.textContent = "Preis unverändert";
@@ -278,12 +339,13 @@
             }
         }
 
-        function speichereProduktHistorie(barcode, name, kat, gramm, preis, markt) {
+        function speichereProduktHistorie(barcode, name, kat, gramm, einheit, preis, markt) {
             let gespeicherteDaten = JSON.parse(localStorage.getItem("prod_" + barcode)) || {};
             
             if (name !== null) gespeicherteDaten.name = name;
             if (kat !== null) gespeicherteDaten.kat = kat;
             if (gramm !== null && !isNaN(gramm)) gespeicherteDaten.gramm = gramm;
+            if (einheit) gespeicherteDaten.einheit = einheit;
             if (preis !== null && !isNaN(preis)) gespeicherteDaten.preis = preis;
             if (markt) gespeicherteDaten.markt = markt;
 
@@ -301,9 +363,10 @@
                 let kat = row.cells[0].querySelector("select").value;
                 let menge = row.cells[1].querySelector("input").value;
                 let gramm = row.cells[2].querySelector("input").value;
+                let einheit = row.cells[2].querySelector(".unit-label").textContent;
                 let preis = row.cells[3].querySelector("input").value;
 
-                einkaufsListe.push({ barcode, name, kat, menge, gramm, preis });
+                einkaufsListe.push({ barcode, name, kat, menge, gramm, einheit, preis });
             });
 
             localStorage.setItem("aktuelle_einkaufsliste", JSON.stringify(einkaufsListe));
@@ -348,7 +411,7 @@
             let markt = document.getElementById("supermarktName").value || "Unbekannter Markt";
             let datum = new Date().toLocaleDateString("de-DE");
 
-            let csvContent = "\uFEFFDatum;Supermarkt;Barcode;Artikelname;Kategorie;Menge;Gramm/ml;Einzelpreis (€);Gesamtpreis (€)\n";
+            let csvContent = "\uFEFFDatum;Supermarkt;Barcode;Artikelname;Kategorie;Anzahl;Menge;Einheit;Einzelpreis (€);Gesamtpreis (€)\n";
 
             rows.forEach(row => {
                 let barcode = row.cells[0].querySelector(".barcode-sub").textContent.replace("Code: ", "").trim();
@@ -356,15 +419,16 @@
                 let kat = row.cells[0].querySelector("select").value;
                 let qty = parseInt(row.cells[1].querySelector("input").value) || 1;
                 let gramm = row.cells[2].querySelector("input").value || "-";
+                let einheit = row.cells[2].querySelector(".unit-label").textContent;
                 let price = parseFloat(row.cells[3].querySelector("input").value) || 0;
                 let rowTotal = (qty * price).toFixed(2).replace('.', ',');
                 let priceFormatted = price.toFixed(2).replace('.', ',');
 
-                csvContent += `"${datum}";"${markt}";"${barcode}";"${name}";"${kat}";"${qty}";"${gramm}";"${priceFormatted}";"${rowTotal}"\n`;
+                csvContent += `"${datum}";"${markt}";"${barcode}";"${name}";"${kat}";"${qty}";"${gramm}";"${einheit}";"${priceFormatted}";"${rowTotal}"\n`;
             });
 
             let gesamt = document.getElementById("gesamtpreis").textContent;
-            csvContent += `\n;;;;;;;Gesamtsumme:;"${gesamt}"\n`;
+            csvContent += `\n;;;;;;;;Gesamtsumme:;"${gesamt}"\n`;
 
             let blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
             let link = document.createElement("a");
@@ -394,9 +458,10 @@
                 let kat = row.cells[0].querySelector("select").value;
                 let qty = row.cells[1].querySelector("input").value || "1";
                 let gramm = row.cells[2].querySelector("input").value;
+                let einheit = row.cells[2].querySelector(".unit-label").textContent;
                 let price = row.cells[3].querySelector("input").value || "0.00";
 
-                let grammStr = gramm ? ` (${gramm}g)` : "";
+                let grammStr = gramm ? ` (${gramm}${einheit})` : "";
                 text += `• ${qty}x ${name}${grammStr} [${kat}] - ${price} €\n`;
             });
 
