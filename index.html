@@ -12,9 +12,10 @@
         
         .btn-scan { width: 100%; padding: 14px; background-color: #198754; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
         .btn-bakery { width: 100%; padding: 12px; background-color: #fd7e14; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 8px; }
+        .btn-produce { width: 100%; padding: 12px; background-color: #20c997; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 8px; }
         .btn-action { width: 100%; padding: 10px; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 8px; color: white; }
         .btn-sort { background-color: #0d6efd; }
-        .btn-stats { background-color: #20c997; }
+        .btn-stats { background-color: #6c757d; }
         .btn-download { background-color: #6f42c1; }
         .btn-share { background-color: #0dcaf0; color: #000; }
         .btn-reset { background-color: #dc3545; }
@@ -31,8 +32,10 @@
         .qty-input { width: 35px !important; text-align: center; }
         .gram-input { width: 55px !important; text-align: center; }
         .price-input { width: 60px !important; }
+        .price-type-select { width: 65px !important; font-size: 10px; padding: 4px 2px; }
         .market-input { margin-bottom: 10px; font-weight: bold; }
         
+        .calculated-total { font-size: 10px; font-weight: bold; color: #0d6efd; display: block; margin-top: 2px; }
         .price-change { font-size: 10px; font-weight: bold; margin-top: 2px; display: block; }
         .price-up { color: #dc3545; }
         .price-down { color: #198754; }
@@ -69,6 +72,7 @@
         
         <button class="btn-scan" onclick="startScanner()">📷 Barcode Live Scannen</button>
         <button class="btn-bakery" onclick="loseBackwareHinzufuegen()">🥐 Lose Backware hinzufügen</button>
+        <button class="btn-produce" onclick="losesObstGemueseHinzufuegen()">🥦 Loses Obst & Gemüse hinzufügen</button>
         <div id="reader"></div>
 
         <div style="margin-top: 10px;">
@@ -90,7 +94,7 @@
                     <th>Artikel / Kat.</th>
                     <th style="width: 35px;">Anz.</th>
                     <th style="width: 55px;">Menge</th>
-                    <th style="width: 60px;">Preis (€)</th>
+                    <th style="width: 120px;">Preis (€)</th>
                     <th style="width: 20px;"></th>
                 </tr>
             </thead>
@@ -106,7 +110,7 @@
         <button class="btn-action btn-reset" onclick="listeLeeren()">🗑️ Liste leeren</button>
     </div>
 
-    <!-- REZEPT-INTEGRATION + KI / CHEFKOCH IMPORTER -->
+    <!-- REZEPT-INTEGRATION -->
     <div class="card">
         <h3>🍽 Smart Rezept-Importer (Gemini / Chefkoch)</h3>
         
@@ -175,7 +179,28 @@
                 menge: 1,
                 gramm: gespeicherteDaten.gramm || "",
                 einheit: "g",
-                preis: gespeicherteDaten.preis || ""
+                preis: gespeicherteDaten.preis || "",
+                preisTyp: gespeicherteDaten.preisTyp || "gesamt"
+            });
+        }
+
+        function losesObstGemueseHinzufuegen() {
+            let artikelName = prompt("Name von Obst / Gemüse (z.B. Bananen, Äpfel, Avocado):");
+            if (!artikelName) return;
+
+            let pluNummer = prompt("PLU-Nummer vom Preisschild (z.B. 4011 für Bananen - optional):", "");
+            let code = pluNummer.trim() !== "" ? "PLU_" + pluNummer.trim() : "OG_" + artikelName.toLowerCase().replace(/\s+/g, '_');
+
+            let gespeicherteDaten = JSON.parse(localStorage.getItem("prod_" + code)) || {};
+
+            produktHinzufuegen(code, {
+                name: artikelName,
+                kat: "Obst & Gemüse",
+                menge: 1,
+                gramm: gespeicherteDaten.gramm || "",
+                einheit: "g",
+                preis: gespeicherteDaten.preis || "",
+                preisTyp: gespeicherteDaten.preisTyp || "100g"
             });
         }
 
@@ -191,6 +216,7 @@
             let altGramm = bestehendeDaten ? bestehendeDaten.gramm : (gespeicherteDaten.gramm !== undefined ? gespeicherteDaten.gramm : "");
             let altEinheit = bestehendeDaten ? bestehendeDaten.einheit : (gespeicherteDaten.einheit || (altKat === "Getränke" ? "ml" : "g"));
             let altPreis = bestehendeDaten ? bestehendeDaten.preis : (gespeicherteDaten.preis !== undefined ? gespeicherteDaten.preis : "");
+            let altPreisTyp = bestehendeDaten ? (bestehendeDaten.preisTyp || "gesamt") : (gespeicherteDaten.preisTyp || "gesamt");
             let istErledigt = bestehendeDaten ? bestehendeDaten.erledigt : false;
 
             if (istErledigt) newRow.classList.add("completed-row");
@@ -204,10 +230,10 @@
                 <input type="text" placeholder="Artikelname..." value="${altName}" oninput="eingabeGeaendert('${barcode}', this)">
                 <select onchange="kategorieGeaendert('${barcode}', this)" style="margin-top: 3px;">
                     <option ${altKat === 'Lebensmittel' ? 'selected' : ''}>Lebensmittel</option>
+                    <option ${altKat === 'Obst & Gemüse' ? 'selected' : ''}>Obst & Gemüse</option>
                     <option ${altKat === 'Backwaren' ? 'selected' : ''}>Backwaren</option>
                     <option ${altKat === 'Getränke' ? 'selected' : ''}>Getränke</option>
                     <option ${altKat === 'Dosen / Konserven' ? 'selected' : ''}>Dosen / Konserven</option>
-                    <option ${altKat === 'Obst & Gemüse' ? 'selected' : ''}>Obst & Gemüse</option>
                     <option ${altKat === 'Drogerie' ? 'selected' : ''}>Drogerie</option>
                     <option ${altKat === 'Tiefkühl' ? 'selected' : ''}>Tiefkühl</option>
                     <option ${altKat === 'Sonstiges' ? 'selected' : ''}>Sonstiges</option>
@@ -228,7 +254,15 @@
             let cell4 = newRow.insertCell(4);
             let targetPrice = gespeicherteDaten.zielpreis ? ` (Ziel: ${parseFloat(gespeicherteDaten.zielpreis).toFixed(2)}€)` : '';
             cell4.innerHTML = `
-                <input type="number" step="0.01" class="price-input" placeholder="0.00" value="${altPreis}" oninput="eingabeGeaendert('${barcode}', this)">
+                <div style="display: flex; gap: 2px;">
+                    <input type="number" step="0.01" class="price-input" placeholder="0.00" value="${altPreis}" oninput="eingabeGeaendert('${barcode}', this)">
+                    <select class="price-type-select" onchange="eingabeGeaendert('${barcode}', this)">
+                        <option value="gesamt" ${altPreisTyp === 'gesamt' ? 'selected' : ''}>Gesamt</option>
+                        <option value="100g" ${altPreisTyp === '100g' ? 'selected' : ''}>/ 100g</option>
+                        <option value="1kg" ${altPreisTyp === '1kg' ? 'selected' : ''}>/ 1 kg</option>
+                    </select>
+                </div>
+                <span class="calculated-total" id="calc_${barcode}"></span>
                 <button class="btn-small" style="background-color: #ffc107; color: #000; margin-top: 2px; width: 100%; font-size: 9px;" onclick="zielpreisSetzen('${barcode}')">🔔 Zielpreis${targetPrice}</button>
                 <span class="price-change" id="diff_${barcode}"></span>
                 <span class="price-compare" id="comp_${barcode}"></span>
@@ -241,9 +275,29 @@
             berechneGesamtsumme();
             speichereAktuelleListe();
 
-            if (!bestehendeDaten && (!altName || !altGramm) && !barcode.startsWith("BACK_") && !barcode.startsWith("PLU_") && !barcode.startsWith("REZ_")) {
+            if (!bestehendeDaten && (!altName || !altGramm) && !barcode.startsWith("BACK_") && !barcode.startsWith("OG_") && !barcode.startsWith("PLU_") && !barcode.startsWith("REZ_")) {
                 await ladeProduktDatenVonOpenFoodFacts(barcode, newRow);
             }
+        }
+
+        // Hilfsfunktion zur Preisberechnung für Grundpreise (100g / 1kg)
+        function berechneEndpreisFuerZeile(row) {
+            let qty = parseInt(row.cells[2].querySelector("input").value) || 1;
+            let gramm = parseFloat(row.cells[3].querySelector("input").value) || 0;
+            let eingegebenerPreis = parseFloat(row.cells[4].querySelector(".price-input").value) || 0;
+            let preisTyp = row.cells[4].querySelector(".price-type-select").value;
+
+            let einzellPreis = eingegebenerPreis;
+
+            if (eingegebenerPreis > 0 && gramm > 0) {
+                if (preisTyp === "100g") {
+                    einzellPreis = (gramm / 100) * eingegebenerPreis;
+                } else if (preisTyp === "1kg") {
+                    einzellPreis = (gramm / 1000) * eingegebenerPreis;
+                }
+            }
+
+            return einzellPreis * qty;
         }
 
         function zielpreisSetzen(barcode) {
@@ -320,6 +374,8 @@
                         katSelect.value = "Tiefkühl";
                     } else if (catsStr.includes("bakery") || catsStr.includes("bread")) {
                         katSelect.value = "Backwaren";
+                    } else if (catsStr.includes("fruits") || catsStr.includes("vegetables") || catsStr.includes("obst") || catsStr.includes("gemüse")) {
+                        katSelect.value = "Obst & Gemüse";
                     }
 
                     if (!grammInput.value) {
@@ -360,14 +416,24 @@
             let katSelect = row.cells[1].querySelector("select").value;
             let grammInput = parseFloat(row.cells[3].querySelector("input").value);
             let einheit = row.cells[3].querySelector(".unit-label").textContent;
-            let preisInput = parseFloat(row.cells[4].querySelector("input").value);
+            let preisInput = parseFloat(row.cells[4].querySelector(".price-input").value);
+            let preisTyp = row.cells[4].querySelector(".price-type-select").value;
             let diffSpan = row.cells[4].querySelector(".price-change");
             let compSpan = row.cells[4].querySelector(".price-compare");
+            let calcSpan = row.cells[4].querySelector(".calculated-total");
 
             let marktName = document.getElementById("supermarktName").value.trim();
-            speichereProduktHistorie(barcode, nameInput, katSelect, grammInput, einheit, preisInput, marktName);
+            speichereProduktHistorie(barcode, nameInput, katSelect, grammInput, einheit, preisInput, preisTyp, marktName);
 
-            if (!isNaN(preisInput) && historienDaten.zielpreis && preisInput <= parseFloat(historienDaten.zielpreis)) {
+            // Berechnung für Kassen-Endpreis anzeigen wenn Grundpreis genutzt wird
+            let endpreis = berechneEndpreisFuerZeile(row);
+            if (preisTyp !== "gesamt" && !isNaN(endpreis) && endpreis > 0) {
+                calcSpan.textContent = `= ${endpreis.toFixed(2).replace('.', ',')} € an Kasse`;
+            } else {
+                calcSpan.textContent = "";
+            }
+
+            if (!isNaN(preisInput) && historienDaten.zielpreis && endpreis <= parseFloat(historienDaten.zielpreis)) {
                 diffSpan.className = "price-deal";
                 diffSpan.textContent = `🔥 ANGEBOT! (≤ ${parseFloat(historienDaten.zielpreis).toFixed(2)}€)`;
                 return;
@@ -395,19 +461,19 @@
             }
         }
 
-        function speichereProduktHistorie(barcode, name, kat, gramm, einheit, preis, markt) {
+        function speichereProduktHistorie(barcode, name, kat, gramm, einheit, preis, preisTyp, markt) {
             let gespeicherteDaten = JSON.parse(localStorage.getItem("prod_" + barcode)) || {};
             if (name !== null) gespeicherteDaten.name = name;
             if (kat !== null) gespeicherteDaten.kat = kat;
             if (gramm !== null && !isNaN(gramm)) gespeicherteDaten.gramm = gramm;
             if (einheit) gespeicherteDaten.einheit = einheit;
             if (preis !== null && !isNaN(preis)) gespeicherteDaten.preis = preis;
+            if (preisTyp) gespeicherteDaten.preisTyp = preisTyp;
             if (markt) gespeicherteDaten.markt = markt;
 
             localStorage.setItem("prod_" + barcode, JSON.stringify(gespeicherteDaten));
         }
 
-        // Vorratskammer-Logik
         function inVorratEintragen(barcode, name) {
             let vorraete = JSON.parse(localStorage.getItem("vorratskammer")) || [];
             let in7Tagen = new Date();
@@ -465,7 +531,6 @@
             ladeVorraete();
         }
 
-        // SMART REZEPT IMPORTER (GEMINI & CHEFKOCH)
         function rezeptImportieren() {
             let name = document.getElementById("importRezeptName").value.trim() || "Neues Rezept";
             let rawText = document.getElementById("importZutatenText").value;
@@ -475,12 +540,11 @@
                 return;
             }
 
-            // Zeilenweise spalten & säubern
             let zeilen = rawText.split(/\r?\n/);
             let zutaten = [];
 
             zeilen.forEach(zeile => {
-                let sauber = zeile.replace(/^[-•*–\d+\.]+\s*/, '').trim(); // Aufzählungspunkte entfernen
+                let sauber = zeile.replace(/^[-•*–\d+\.]+\s*/, '').trim();
                 if (sauber.length > 2) {
                     zutaten.push(sauber);
                 }
@@ -495,7 +559,6 @@
             rezepte.push({ id: Date.now(), name: name, zutaten: zutaten });
             localStorage.setItem("rezepte", JSON.stringify(rezepte));
 
-            // Felder leeren
             document.getElementById("importRezeptName").value = "";
             document.getElementById("importZutatenText").value = "";
 
@@ -534,7 +597,6 @@
             if (!rezept) return;
 
             rezept.zutaten.forEach(zutat => {
-                // Versuche Menge/Einheit zu parsen (z.B. "500g Hackfleisch")
                 let match = zutat.match(/^(\d+[\.,]?\d*)\s*(g|ml|kg|l|Stück)?\s+(.*)/i);
                 
                 let mengev = "";
@@ -555,7 +617,8 @@
                     menge: 1,
                     gramm: mengev,
                     einheit: einheitv,
-                    preis: ""
+                    preis: "",
+                    preisTyp: "gesamt"
                 });
             });
 
@@ -569,7 +632,6 @@
             ladeRezepte();
         }
 
-        // Hilfsfunktionen
         function ladeFavoriten() {
             let favContainer = document.getElementById("favList");
             favContainer.innerHTML = "";
@@ -603,7 +665,8 @@
                         menge: 1,
                         gramm: prod.gramm || "",
                         einheit: prod.einheit || "g",
-                        preis: prod.preis || ""
+                        preis: prod.preis || "",
+                        preisTyp: prod.preisTyp || "gesamt"
                     });
                 };
                 favContainer.appendChild(btn);
@@ -617,8 +680,8 @@
             let gesamtArtikel = 0, gesamtSumme = 0;
             rows.forEach(row => {
                 let qty = parseInt(row.cells[2].querySelector("input").value) || 1;
-                let price = parseFloat(row.cells[4].querySelector("input").value) || 0;
-                gesamtArtikel += qty; gesamtSumme += qty * price;
+                let price = berechneEndpreisFuerZeile(row);
+                gesamtArtikel += qty; gesamtSumme += price;
             });
 
             alert(`📊 STATISTIK:\n- Gesamtsumme: ${gesamtSumme.toFixed(2).replace('.', ',')} €\n- Artikelanzahl: ${gesamtArtikel} Stück`);
@@ -628,9 +691,7 @@
             let rows = document.querySelectorAll("#einkaufsTabelle tbody tr");
             let gesamt = 0;
             rows.forEach(row => {
-                let qty = parseInt(row.cells[2].querySelector("input").value) || 1;
-                let price = parseFloat(row.cells[4].querySelector("input").value) || 0;
-                gesamt += qty * price;
+                gesamt += berechneEndpreisFuerZeile(row);
             });
             document.getElementById("gesamtpreis").textContent = gesamt.toFixed(2).replace('.', ',') + " €";
         }
@@ -645,10 +706,11 @@
                 let menge = row.cells[2].querySelector("input").value;
                 let gramm = row.cells[3].querySelector("input").value;
                 let einheit = row.cells[3].querySelector(".unit-label").textContent;
-                let preis = row.cells[4].querySelector("input").value;
+                let preis = row.cells[4].querySelector(".price-input").value;
+                let preisTyp = row.cells[4].querySelector(".price-type-select").value;
                 let erledigt = row.cells[0].querySelector("input").checked;
 
-                einkaufsListe.push({ barcode, name, kat, menge, gramm, einheit, preis, erledigt });
+                einkaufsListe.push({ barcode, name, kat, menge, gramm, einheit, preis, preisTyp, erledigt });
             });
 
             let markt = document.getElementById("supermarktName").value;
@@ -701,16 +763,16 @@
             let rows = document.querySelectorAll("#einkaufsTabelle tbody tr");
             if (rows.length === 0) { alert("Liste ist leer!"); return; }
 
-            let csvContent = "data:text/csv;charset=utf-8,Erledigt;Artikel;Kategorie;Anzahl;Menge;Preis\n";
+            let csvContent = "data:text/csv;charset=utf-8,Erledigt;Artikel;Kategorie;Anzahl;Menge;Endpreis\n";
             rows.forEach(row => {
                 let erledigt = row.cells[0].querySelector("input").checked ? "JA" : "NEIN";
                 let name = row.cells[1].querySelector("input[type='text']").value;
                 let kat = row.cells[1].querySelector("select").value;
                 let menge = row.cells[2].querySelector("input").value;
                 let gramm = row.cells[3].querySelector("input").value + row.cells[3].querySelector(".unit-label").textContent;
-                let preis = row.cells[4].querySelector("input").value;
+                let endpreis = berechneEndpreisFuerZeile(row).toFixed(2);
 
-                csvContent += `${erledigt};"${name}";"${kat}";${menge};"${gramm}";"${preis}"\n`;
+                csvContent += `${erledigt};"${name}";"${kat}";${menge};"${gramm}";"${endpreis}"\n`;
             });
 
             let encodedUri = encodeURI(csvContent);
@@ -736,8 +798,10 @@
                 let gramm = row.cells[3].querySelector("input").value;
                 let einheit = row.cells[3].querySelector(".unit-label").textContent;
                 let mengeText = gramm ? ` (${gramm}${einheit})` : "";
+                let endpreis = berechneEndpreisFuerZeile(row);
+                let preisText = endpreis > 0 ? ` - ${endpreis.toFixed(2).replace('.', ',')}€` : "";
 
-                text += `${erledigt}${qty}x ${name}${mengeText}\n`;
+                text += `${erledigt}${qty}x ${name}${mengeText}${preisText}\n`;
             });
 
             let summe = document.getElementById("gesamtpreis").textContent;
