@@ -730,4 +730,428 @@
                         if (match) {
                             let val = parseFloat(match[1].replace(',', '.'));
                             let einheit = match[2].toLowerCase();
-                            if
+                            if (einheit === 'l') { val *= 1000; einheitLabel.textContent = "ml"; }
+                            if (einheit === 'kg') { val *= 1000; einheitLabel.textContent = "g"; }
+                            grammInput.value = val;
+                        }
+                    }
+
+                    statusSpan.textContent = "✓";
+                    setTimeout(() => { statusSpan.textContent = ""; }, 2500);
+                    eingabeGeaendert(barcode, nameInput);
+                } else {
+                    statusSpan.textContent = "❌";
+                    setTimeout(() => { statusSpan.textContent = ""; }, 2500);
+                }
+            } catch (err) {
+                statusSpan.textContent = "";
+            }
+        }
+
+        function eingabeGeaendert(barcode, inputElem) {
+            let row = inputElem.closest("tr");
+            let gespeicherteDaten = JSON.parse(localStorage.getItem("prod_" + barcode)) || {};
+            vergleicheUndSpeichere(barcode, row, gespeicherteDaten);
+            berechneGesamtsumme();
+            speichereAktuelleListe();
+            ladeFavoriten();
+        }
+
+        function vergleicheUndSpeichere(barcode, row, historienDaten) {
+            let t = translations[currentLang] || translations.de;
+            let nameInput = row.cells[1].querySelector("input[type='text']").value;
+            let katSelect = row.cells[1].querySelector("select").value;
+            let grammInput = parseFloat(row.cells[3].querySelector("input").value);
+            let einheit = row.cells[3].querySelector(".unit-label").textContent;
+            let preisInput = parseFloat(row.cells[4].querySelector(".price-input").value);
+            let preisTyp = row.cells[4].querySelector(".price-type-select").value;
+            let diffSpan = row.cells[4].querySelector(".price-change");
+            let compSpan = row.cells[4].querySelector(".price-compare");
+            let calcSpan = row.cells[4].querySelector(".calculated-total");
+
+            let marktName = document.getElementById("supermarktName").value.trim();
+            speichereProduktHistorie(barcode, nameInput, katSelect, grammInput, einheit, preisInput, preisTyp, marktName);
+
+            let endpreis = berechneEndpreisFuerZeile(row);
+            if (preisTyp !== "gesamt" && !isNaN(endpreis) && endpreis > 0) {
+                calcSpan.textContent = `= ${endpreis.toFixed(2).replace('.', ',')} € ${t.at_checkout}`;
+            } else {
+                calcSpan.textContent = "";
+            }
+
+            if (!isNaN(preisInput) && historienDaten.zielpreis && endpreis <= parseFloat(historienDaten.zielpreis)) {
+                diffSpan.className = "price-deal";
+                diffSpan.textContent = `🔥 DEAL! (≤ ${parseFloat(historienDaten.zielpreis).toFixed(2)}€)`;
+                return;
+            }
+
+            if (!isNaN(preisInput) && historienDaten.preis && !isNaN(historienDaten.preis)) {
+                let diff = preisInput - parseFloat(historienDaten.preis);
+                if (diff > 0.005) {
+                    diffSpan.className = "price-change price-up";
+                    diffSpan.textContent = `+${diff.toFixed(2).replace('.', ',')} €`;
+                } else if (diff < -0.005) {
+                    diffSpan.className = "price-change price-down";
+                    diffSpan.textContent = `${diff.toFixed(2).replace('.', ',')} €`;
+                } else {
+                    diffSpan.textContent = "";
+                }
+            } else {
+                diffSpan.textContent = "";
+            }
+
+            if (historienDaten.markt && historienDaten.preis && marktName && historienDaten.markt.toLowerCase() !== marktName.toLowerCase()) {
+                compSpan.textContent = `@ ${historienDaten.markt}: ${parseFloat(historienDaten.preis).toFixed(2).replace('.', ',')} €`;
+            } else {
+                compSpan.textContent = "";
+            }
+        }
+
+        function speichereProduktHistorie(barcode, name, kat, gramm, einheit, preis, preisTyp, markt) {
+            let gespeicherteDaten = JSON.parse(localStorage.getItem("prod_" + barcode)) || {};
+            if (name !== null) gespeicherteDaten.name = name;
+            if (kat !== null) gespeicherteDaten.kat = kat;
+            if (gramm !== null && !isNaN(gramm)) gespeicherteDaten.gramm = gramm;
+            if (einheit) gespeicherteDaten.einheit = einheit;
+            if (preis !== null && !isNaN(preis)) gespeicherteDaten.preis = preis;
+            if (preisTyp) gespeicherteDaten.preisTyp = preisTyp;
+            if (markt) gespeicherteDaten.markt = markt;
+
+            localStorage.setItem("prod_" + barcode, JSON.stringify(gespeicherteDaten));
+        }
+
+        function inVorratEintragen(barcode, name) {
+            let vorraete = JSON.parse(localStorage.getItem("vorratskammer")) || [];
+            let in7Tagen = new Date();
+            in7Tagen.setDate(in7Tagen.getDate() + 7);
+            let defaultDatum = in7Tagen.toISOString().slice(0, 10);
+
+            vorraete.push({ id: Date.now(), barcode, name, mhd: defaultDatum });
+            localStorage.setItem("vorratskammer", JSON.stringify(vorraete));
+            ladeVorraete();
+        }
+
+        function ladeVorraete() {
+            let vorraete = JSON.parse(localStorage.getItem("vorratskammer")) || [];
+            let tbody = document.getElementById("vorratsTabelle").getElementsByTagName("tbody")[0];
+            tbody.innerHTML = "";
+
+            let heute = new Date().toISOString().slice(0, 10);
+
+            vorraete.forEach(item => {
+                let row = tbody.insertRow();
+                let statusText = "OK";
+                let statusClass = "mhd-ok";
+
+                if (item.mhd < heute) {
+                    statusText = "Expired!";
+                    statusClass = "mhd-expired";
+                } else if (item.mhd === heute) {
+                    statusText = "Today!";
+                    statusClass = "mhd-warn";
+                }
+
+                row.innerHTML = `
+                    <td style="font-size: 12px; font-weight: bold;">${item.name}</td>
+                    <td><input type="date" value="${item.mhd}" style="font-size: 11px;" onchange="mhdAendern(${item.id}, this.value)"></td>
+                    <td class="${statusClass}" style="font-size: 11px;">${statusText}</td>
+                    <td><button class="btn-delete" onclick="vorratLoeschen(${item.id})">✕</button></td>
+                `;
+            });
+        }
+
+        function mhdAendern(id, neuesDatum) {
+            let vorraete = JSON.parse(localStorage.getItem("vorratskammer")) || [];
+            let item = vorraete.find(v => v.id === id);
+            if (item) {
+                item.mhd = neuesDatum;
+                localStorage.setItem("vorratskammer", JSON.stringify(vorraete));
+                ladeVorraete();
+            }
+        }
+
+        function vorratLoeschen(id) {
+            let vorraete = JSON.parse(localStorage.getItem("vorratskammer")) || [];
+            vorraete = vorraete.filter(v => v.id !== id);
+            localStorage.setItem("vorratskammer", JSON.stringify(vorraete));
+            ladeVorraete();
+        }
+
+        function rezeptImportieren() {
+            let name = document.getElementById("importRezeptName").value.trim() || "Rezept";
+            let rawText = document.getElementById("importZutatenText").value;
+
+            if (!rawText.trim()) return;
+
+            let zeilen = rawText.split(/\r?\n/);
+            let zutaten = [];
+
+            zeilen.forEach(zeile => {
+                let sauber = zeile.replace(/^[-•*–\d+\.]+\s*/, '').trim();
+                if (sauber.length > 2) {
+                    zutaten.push(sauber);
+                }
+            });
+
+            if (zutaten.length === 0) return;
+
+            let rezepte = JSON.parse(localStorage.getItem("rezepte")) || [];
+            rezepte.push({ id: Date.now(), name: name, zutaten: zutaten });
+            localStorage.setItem("rezepte", JSON.stringify(rezepte));
+
+            document.getElementById("importRezeptName").value = "";
+            document.getElementById("importZutatenText").value = "";
+
+            ladeRezepte();
+        }
+
+        function ladeRezepte() {
+            let t = translations[currentLang] || translations.de;
+            let rezepte = JSON.parse(localStorage.getItem("rezepte")) || [];
+            let container = document.getElementById("rezepteListe");
+            container.innerHTML = "";
+
+            if (rezepte.length === 0) {
+                container.innerHTML = `<span style="font-size: 11px; color: #999;">${t.no_recipes}</span>`;
+                return;
+            }
+
+            rezepte.reverse().forEach(r => {
+                let card = document.createElement("div");
+                card.className = "recipe-card";
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <strong style="font-size: 13px;">${r.name}</strong>
+                        <button class="btn-delete" onclick="rezeptLoeschen(${r.id})">✕</button>
+                    </div>
+                    <p style="font-size: 11px; color: #555; margin: 4px 0;">${r.zutaten.join(", ")}</p>
+                    <button class="btn-small" style="background-color: #198754; color: white;" onclick="rezeptAufEinkaufsliste(${r.id})">${t.add_ingredients}</button>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function rezeptAufEinkaufsliste(id) {
+            let rezepte = JSON.parse(localStorage.getItem("rezepte")) || [];
+            let rezept = rezepte.find(r => r.id === id);
+            if (!rezept) return;
+
+            rezept.zutaten.forEach(zutat => {
+                let match = zutat.match(/^(\d+[\.,]?\d*)\s*(g|ml|kg|l|Stück)?\s+(.*)/i);
+                
+                let mengev = "";
+                let einheitv = "g";
+                let namev = zutat;
+
+                if (match) {
+                    mengev = match[1];
+                    einheitv = match[2] ? match[2].toLowerCase() : "g";
+                    namev = match[3];
+                }
+
+                let code = "REZ_" + namev.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+
+                produktHinzufuegen(code, {
+                    name: namev,
+                    kat: "Lebensmittel",
+                    menge: 1,
+                    gramm: mengev,
+                    einheit: einheitv,
+                    preis: "",
+                    preisTyp: "gesamt"
+                });
+            });
+        }
+
+        function rezeptLoeschen(id) {
+            let rezepte = JSON.parse(localStorage.getItem("rezepte")) || [];
+            rezepte = rezepte.filter(r => r.id !== id);
+            localStorage.setItem("rezepte", JSON.stringify(rezepte));
+            ladeRezepte();
+        }
+
+        function ladeFavoriten() {
+            let t = translations[currentLang] || translations.de;
+            let favContainer = document.getElementById("favList");
+            favContainer.innerHTML = "";
+
+            let alleProdukte = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                let key = localStorage.key(i);
+                if (key.startsWith("prod_")) {
+                    let prod = JSON.parse(localStorage.getItem(key));
+                    if (prod && prod.name) {
+                        let barcode = key.replace("prod_", "");
+                        alleProdukte.push({ barcode, ...prod });
+                    }
+                }
+            }
+
+            if (alleProdukte.length === 0) {
+                favContainer.innerHTML = `<span style="font-size: 11px; color: #999;">${t.no_favs}</span>`;
+                return;
+            }
+
+            alleProdukte.slice(-8).reverse().forEach(prod => {
+                let btn = document.createElement("button");
+                btn.className = "fav-btn";
+                let preisStr = prod.preis ? ` (${parseFloat(prod.preis).toFixed(2).replace('.', ',')}€)` : "";
+                btn.textContent = `+ ${prod.name}${preisStr}`;
+                btn.onclick = () => {
+                    produktHinzufuegen(prod.barcode, {
+                        name: prod.name,
+                        kat: prod.kat || "Lebensmittel",
+                        menge: 1,
+                        gramm: prod.gramm || "",
+                        einheit: prod.einheit || "g",
+                        preis: prod.preis || "",
+                        preisTyp: prod.preisTyp || "gesamt"
+                    });
+                };
+                favContainer.appendChild(btn);
+            });
+        }
+
+        function zeigeStatistik() {
+            let rows = document.querySelectorAll("#einkaufsTabelle tbody tr");
+            if (rows.length === 0) return;
+
+            let gesamtArtikel = 0, gesamtSumme = 0;
+            rows.forEach(row => {
+                let qty = parseInt(row.cells[2].querySelector("input").value) || 1;
+                let price = berechneEndpreisFuerZeile(row);
+                gesamtArtikel += qty; gesamtSumme += price;
+            });
+
+            alert(`📊 STATS:\n- Total: ${gesamtSumme.toFixed(2).replace('.', ',')} €\n- Items: ${gesamtArtikel}`);
+        }
+
+        function berechneGesamtsumme() {
+            let rows = document.querySelectorAll("#einkaufsTabelle tbody tr");
+            let gesamt = 0;
+            rows.forEach(row => {
+                gesamt += berechneEndpreisFuerZeile(row);
+            });
+            document.getElementById("gesamtpreis").textContent = gesamt.toFixed(2).replace('.', ',') + " €";
+        }
+
+        function speichereAktuelleListe() {
+            let rows = document.querySelectorAll("#einkaufsTabelle tbody tr");
+            let einkaufsListe = [];
+            rows.forEach(row => {
+                let barcode = row.cells[1].querySelector(".barcode-sub").textContent.replace("Code: ", "").trim();
+                let name = row.cells[1].querySelector("input[type='text']").value;
+                let kat = row.cells[1].querySelector("select").value;
+                let menge = row.cells[2].querySelector("input").value;
+                let gramm = row.cells[3].querySelector("input").value;
+                let einheit = row.cells[3].querySelector(".unit-label").textContent;
+                let preis = row.cells[4].querySelector(".price-input").value;
+                let preisTyp = row.cells[4].querySelector(".price-type-select").value;
+                let erledigt = row.cells[0].querySelector("input").checked;
+
+                einkaufsListe.push({ barcode, name, kat, menge, gramm, einheit, preis, preisTyp, erledigt });
+            });
+
+            let markt = document.getElementById("supermarktName").value;
+            localStorage.setItem("aktuelle_liste", JSON.stringify(einkaufsListe));
+            localStorage.setItem("aktueller_markt", markt);
+        }
+
+        function ladeAktuelleListe() {
+            let savedList = JSON.parse(localStorage.getItem("aktuelle_liste")) || [];
+            let savedMarkt = localStorage.getItem("aktueller_markt") || "";
+            document.getElementById("supermarktName").value = savedMarkt;
+
+            let tbody = document.getElementById("einkaufsTabelle").getElementsByTagName("tbody")[0];
+            tbody.innerHTML = "";
+
+            savedList.reverse().forEach(item => {
+                produktHinzufuegen(item.barcode, item);
+            });
+        }
+
+        function zeileLoeschen(btn) {
+            let row = btn.closest("tr");
+            row.remove();
+            berechneGesamtsumme();
+            speichereAktuelleListe();
+        }
+
+        function nachKategorieSortieren() {
+            let tbody = document.getElementById("einkaufsTabelle").getElementsByTagName("tbody")[0];
+            let rows = Array.from(tbody.rows);
+
+            rows.sort((a, b) => {
+                let katA = a.cells[1].querySelector("select").value;
+                let katB = b.cells[1].querySelector("select").value;
+                return katA.localeCompare(katB);
+            });
+
+            rows.forEach(row => tbody.appendChild(row));
+        }
+
+        function listeLeeren() {
+            if (confirm("Liste leeren? / Clear list?")) {
+                document.getElementById("einkaufsTabelle").getElementsByTagName("tbody")[0].innerHTML = "";
+                berechneGesamtsumme();
+                speichereAktuelleListe();
+            }
+        }
+
+        function listeHerunterladenCSV() {
+            let rows = document.querySelectorAll("#einkaufsTabelle tbody tr");
+            if (rows.length === 0) return;
+
+            let csvContent = "data:text/csv;charset=utf-8,Erledigt;Artikel;Kategorie;Anzahl;Menge;Endpreis\n";
+            rows.forEach(row => {
+                let erledigt = row.cells[0].querySelector("input").checked ? "JA" : "NEIN";
+                let name = row.cells[1].querySelector("input[type='text']").value;
+                let kat = row.cells[1].querySelector("select").value;
+                let menge = row.cells[2].querySelector("input").value;
+                let gramm = row.cells[3].querySelector("input").value + row.cells[3].querySelector(".unit-label").textContent;
+                let endpreis = berechneEndpreisFuerZeile(row).toFixed(2);
+
+                csvContent += `${erledigt};"${name}";"${kat}";${menge};"${gramm}";"${endpreis}"\n`;
+            });
+
+            let encodedUri = encodeURI(csvContent);
+            let link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "einkaufsliste.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function listeTeilen() {
+            let rows = document.querySelectorAll("#einkaufsTabelle tbody tr");
+            if (rows.length === 0) return;
+
+            let markt = document.getElementById("supermarktName").value;
+            let text = `🛒 *Einkaufsliste*${markt ? " (" + markt + ")" : ""}:\n\n`;
+
+            rows.forEach(row => {
+                let erledigt = row.cells[0].querySelector("input").checked ? "✅ " : "⬜ ";
+                let name = row.cells[1].querySelector("input[type='text']").value || "Artikel";
+                let qty = row.cells[2].querySelector("input").value;
+                let gramm = row.cells[3].querySelector("input").value;
+                let einheit = row.cells[3].querySelector(".unit-label").textContent;
+                let mengeText = gramm ? ` (${gramm}${einheit})` : "";
+                let endpreis = berechneEndpreisFuerZeile(row);
+                let preisText = endpreis > 0 ? ` - ${endpreis.toFixed(2).replace('.', ',')}€` : "";
+
+                text += `${erledigt}${qty}x ${name}${mengeText}${preisText}\n`;
+            });
+
+            let summe = document.getElementById("gesamtpreis").textContent;
+            text += `\n💰 *Total:* ${summe}`;
+
+            if (navigator.share) {
+                navigator.share({ title: 'Einkaufsliste', text: text });
+            } else {
+                window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+            }
+        }
+    </script>
+</body>
+</html>
