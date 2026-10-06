@@ -10,6 +10,9 @@
         h2, h3 { text-align: center; color: #333; margin-bottom: 15px; }
         .card { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); margin-bottom: 15px; }
         
+        .lang-container { text-align: right; margin-bottom: 10px; }
+        .lang-select { width: auto !important; padding: 6px 10px; font-weight: bold; border-radius: 6px; border: 1px solid #0d6efd; background-color: #fff; cursor: pointer; }
+
         .btn-scan { width: 100%; padding: 14px; background-color: #198754; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
         .btn-bakery { width: 100%; padding: 12px; background-color: #fd7e14; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 8px; }
         .btn-produce { width: 100%; padding: 12px; background-color: #20c997; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 8px; }
@@ -64,37 +67,49 @@
 </head>
 <body>
 
-    <h2>🛒 Einkaufsliste & Smart Assistant</h2>
+    <div class="lang-container">
+        🌐 <select id="languageSelect" class="lang-select" onchange="aendereSprache(this.value)">
+            <option value="de">Deutsch 🇩🇪</option>
+            <option value="en">English 🇬🇧</option>
+            <option value="tr">Türkçe 🇹🇷</option>
+            <option value="pl">Polski 🇵🇱</option>
+            <option value="es">Español 🇪🇸</option>
+            <option value="fr">Français 🇫🇷</option>
+            <option value="it">Italiano 🇮🇹</option>
+        </select>
+    </div>
+
+    <h2 data-i18n="app_title">🛒 Einkaufsliste & Smart Assistant</h2>
 
     <div class="card">
-        <label style="font-size: 12px; font-weight: bold; color: #555;">Supermarkt / Geschäft:</label>
+        <label style="font-size: 12px; font-weight: bold; color: #555;" data-i18n="label_supermarket">Supermarkt / Geschäft:</label>
         <input type="text" id="supermarktName" class="market-input" placeholder="z.B. REWE, ALDI, Edeka..." oninput="speichereAktuelleListe()">
         
-        <button class="btn-scan" onclick="startScanner()">📷 Barcode Live Scannen</button>
-        <button class="btn-bakery" onclick="loseBackwareHinzufuegen()">🥐 Lose Backware hinzufügen</button>
-        <button class="btn-produce" onclick="losesObstGemueseHinzufuegen()">🥦 Loses Obst & Gemüse hinzufügen</button>
+        <button class="btn-scan" onclick="startScanner()" data-i18n="btn_scan">📷 Barcode Live Scannen</button>
+        <button class="btn-bakery" onclick="loseBackwareHinzufuegen()" data-i18n="btn_bakery">🥐 Lose Backware hinzufügen</button>
+        <button class="btn-produce" onclick="losesObstGemueseHinzufuegen()" data-i18n="btn_produce">🥦 Loses Obst & Gemüse hinzufügen</button>
         <div id="reader"></div>
 
         <div style="margin-top: 10px;">
-            <label style="font-size: 11px; font-weight: bold; color: #6c757d;">⭐ Schnellauswahl (Favoriten):</label>
+            <label style="font-size: 11px; font-weight: bold; color: #6c757d;" data-i18n="label_favorites">⭐ Schnellauswahl (Favoriten):</label>
             <div class="fav-container" id="favList">
-                <span style="font-size: 11px; color: #999;">Noch keine Favoriten</span>
+                <span style="font-size: 11px; color: #999;" data-i18n="no_favs">Noch keine Favoriten</span>
             </div>
         </div>
     </div>
 
     <div class="card">
-        <button class="btn-action btn-sort" onclick="nachKategorieSortieren()">↕️ Nach Kategorien sortieren</button>
-        <button class="btn-action btn-stats" onclick="zeigeStatistik()">📊 Einkaufs-Statistik zeigen</button>
+        <button class="btn-action btn-sort" onclick="nachKategorieSortieren()" data-i18n="btn_sort">↕️ Nach Kategorien sortieren</button>
+        <button class="btn-action btn-stats" onclick="zeigeStatistik()" data-i18n="btn_stats">📊 Einkaufs-Statistik zeigen</button>
         
         <table id="einkaufsTabelle">
             <thead>
                 <tr>
                     <th style="width: 25px;">✓</th>
-                    <th>Artikel / Kat.</th>
-                    <th style="width: 35px;">Anz.</th>
-                    <th style="width: 55px;">Menge</th>
-                    <th style="width: 120px;">Preis (€)</th>
+                    <th data-i18n="th_item">Artikel / Kat.</th>
+                    <th style="width: 35px;" data-i18n="th_qty">Anz.</th>
+                    <th style="width: 55px;" data-i18n="th_amount">Menge</th>
+                    <th style="width: 120px;" data-i18n="th_price">Preis (€)</th>
                     <th style="width: 20px;"></th>
                 </tr>
             </thead>
@@ -102,26 +117,26 @@
         </table>
 
         <div class="total-box">
-            Gesamtsumme: <span id="gesamtpreis">0,00 €</span>
+            <span data-i18n="total_sum">Gesamtsumme:</span> <span id="gesamtpreis">0,00 €</span>
         </div>
 
-        <button class="btn-action btn-download" onclick="listeHerunterladenCSV()">📥 Liste als CSV herunterladen</button>
-        <button class="btn-action btn-share" onclick="listeTeilen()">📲 Liste teilen (WhatsApp/Mail)</button>
-        <button class="btn-action btn-reset" onclick="listeLeeren()">🗑️ Liste leeren</button>
+        <button class="btn-action btn-download" onclick="listeHerunterladenCSV()" data-i18n="btn_csv">📥 Liste als CSV herunterladen</button>
+        <button class="btn-action btn-share" onclick="listeTeilen()" data-i18n="btn_share">📲 Liste teilen (WhatsApp/Mail)</button>
+        <button class="btn-action btn-reset" onclick="listeLeeren()" data-i18n="btn_clear">🗑️ Liste leeren</button>
     </div>
 
     <!-- REZEPT-INTEGRATION -->
     <div class="card">
-        <h3>🍽 Smart Rezept-Importer (Gemini / Chefkoch)</h3>
+        <h3 data-i18n="recipe_title">🍽 Smart Rezept-Importer (Gemini / Chefkoch)</h3>
         
         <div class="import-box">
-            <label style="font-size: 11px; font-weight: bold; color: #333;">Rezept-Name:</label>
+            <label style="font-size: 11px; font-weight: bold; color: #333;" data-i18n="recipe_name_label">Rezept-Name:</label>
             <input type="text" id="importRezeptName" placeholder="z.B. Gemüseeintopf von Gemini" style="margin-bottom: 6px;">
             
-            <label style="font-size: 11px; font-weight: bold; color: #333;">Zutaten oder Text kopieren (aus Chefkoch/Gemini):</label>
-            <textarea id="importZutatenText" placeholder="Füge hier Zutaten ein, z. B.:&#10;500g Hackfleisch&#10;1 Dose Tomaten&#10;2 Zwiebeln&#10;oder den Text aus Chefkoch/Gemini..."></textarea>
+            <label style="font-size: 11px; font-weight: bold; color: #333;" data-i18n="recipe_text_label">Zutaten oder Text kopieren (aus Chefkoch/Gemini):</label>
+            <textarea id="importZutatenText" placeholder="Füge hier Zutaten ein..."></textarea>
             
-            <button class="btn-action" style="background-color: #198754; margin-top: 6px;" onclick="rezeptImportieren()">✨ Rezept importieren & speichern</button>
+            <button class="btn-action" style="background-color: #198754; margin-top: 6px;" onclick="rezeptImportieren()" data-i18n="btn_import">✨ Rezept importieren & speichern</button>
         </div>
 
         <div id="rezepteListe" style="margin-top: 10px;"></div>
@@ -129,14 +144,14 @@
 
     <!-- VORRATSKAMMER & MHD -->
     <div class="card">
-        <h3>🧊 Vorratskammer & MHD Tracker</h3>
-        <p style="font-size: 11px; color: #6c757d; text-align: center; margin-top: -8px;">Gekaufte (abgehakte) Artikel landen hier automatisch.</p>
+        <h3 data-i18n="pantry_title">🧊 Vorratskammer & MHD Tracker</h3>
+        <p style="font-size: 11px; color: #6c757d; text-align: center; margin-top: -8px;" data-i18n="pantry_sub">Gekaufte (abgehakte) Artikel landen hier automatisch.</p>
         <table id="vorratsTabelle">
             <thead>
                 <tr>
-                    <th>Artikel</th>
-                    <th style="width: 90px;">MHD Datum</th>
-                    <th style="width: 70px;">Status</th>
+                    <th data-i18n="th_pantry_item">Artikel</th>
+                    <th style="width: 90px;" data-i18n="th_pantry_mhd">MHD Datum</th>
+                    <th style="width: 70px;" data-i18n="th_pantry_status">Status</th>
                     <th style="width: 20px;"></th>
                 </tr>
             </thead>
@@ -145,14 +160,346 @@
     </div>
 
     <script>
+        const translations = {
+            de: {
+                app_title: "🛒 Einkaufsliste & Smart Assistant",
+                label_supermarket: "Supermarkt / Geschäft:",
+                btn_scan: "📷 Barcode Live Scannen",
+                btn_bakery: "🥐 Lose Backware hinzufügen",
+                btn_produce: "🥦 Loses Obst & Gemüse hinzufügen",
+                label_favorites: "⭐ Schnellauswahl (Favoriten):",
+                no_favs: "Noch keine Favoriten",
+                btn_sort: "↕️ Nach Kategorien sortieren",
+                btn_stats: "📊 Einkaufs-Statistik zeigen",
+                th_item: "Artikel / Kat.",
+                th_qty: "Anz.",
+                th_amount: "Menge",
+                th_price: "Preis (€)",
+                total_sum: "Gesamtsumme:",
+                btn_csv: "📥 Liste als CSV herunterladen",
+                btn_share: "📲 Liste teilen (WhatsApp/Mail)",
+                btn_clear: "🗑️ Liste leeren",
+                recipe_title: "🍽 Smart Rezept-Importer (Gemini / Chefkoch)",
+                recipe_name_label: "Rezept-Name:",
+                recipe_text_label: "Zutaten oder Text kopieren (aus Chefkoch/Gemini):",
+                btn_import: "✨ Rezept importieren & speichern",
+                pantry_title: "🧊 Vorratskammer & MHD Tracker",
+                pantry_sub: "Gekaufte (abgehakte) Artikel landen hier automatisch.",
+                th_pantry_item: "Artikel",
+                th_pantry_mhd: "MHD Datum",
+                th_pantry_status: "Status",
+                opt_total: "Gesamt",
+                opt_100g: "/ 100g",
+                opt_1kg: "/ 1 kg",
+                at_checkout: "an Kasse",
+                target_price: "🔔 Zielpreis",
+                no_recipes: "Noch keine Rezepte gespeichert.",
+                add_ingredients: "🛒 Zutaten auf Einkaufsliste setzen",
+                kat_grocery: "Lebensmittel",
+                kat_produce: "Obst & Gemüse",
+                kat_bakery: "Backwaren",
+                kat_drinks: "Getränke",
+                kat_canned: "Dosen / Konserven",
+                kat_drugstore: "Drogerie",
+                kat_frozen: "Tiefkühl",
+                kat_other: "Sonstiges"
+            },
+            en: {
+                app_title: "🛒 Shopping List & Smart Assistant",
+                label_supermarket: "Supermarket / Store:",
+                btn_scan: "📷 Scan Barcode Live",
+                btn_bakery: "🥐 Add Bakery Item",
+                btn_produce: "🥦 Add Loose Produce",
+                label_favorites: "⭐ Quick Select (Favorites):",
+                no_favs: "No favorites yet",
+                btn_sort: "↕️ Sort by Category",
+                btn_stats: "📊 Show Shopping Stats",
+                th_item: "Item / Cat.",
+                th_qty: "Qty",
+                th_amount: "Amount",
+                th_price: "Price (€)",
+                total_sum: "Total Sum:",
+                btn_csv: "📥 Download List as CSV",
+                btn_share: "📲 Share List (WhatsApp/Mail)",
+                btn_clear: "🗑️ Clear List",
+                recipe_title: "🍽 Smart Recipe Importer",
+                recipe_name_label: "Recipe Name:",
+                recipe_text_label: "Paste ingredients or text:",
+                btn_import: "✨ Import & Save Recipe",
+                pantry_title: "🧊 Pantry & Expiry Tracker",
+                pantry_sub: "Checked items land here automatically.",
+                th_pantry_item: "Item",
+                th_pantry_mhd: "Expiry Date",
+                th_pantry_status: "Status",
+                opt_total: "Total",
+                opt_100g: "/ 100g",
+                opt_1kg: "/ 1 kg",
+                at_checkout: "at register",
+                target_price: "🔔 Target Price",
+                no_recipes: "No recipes saved yet.",
+                add_ingredients: "🛒 Add Ingredients to List",
+                kat_grocery: "Groceries",
+                kat_produce: "Fruit & Veg",
+                kat_bakery: "Bakery",
+                kat_drinks: "Drinks",
+                kat_canned: "Canned Food",
+                kat_drugstore: "Drugstore",
+                kat_frozen: "Frozen",
+                kat_other: "Other"
+            },
+            tr: {
+                app_title: "🛒 Alışveriş Listesi ve Akıllı Asistan",
+                label_supermarket: "Süpermarket / Mağaza:",
+                btn_scan: "📷 Canlı Barkod Taraması",
+                btn_bakery: "🥐 Fırın Ürünü Ekle",
+                btn_produce: "🥦 Meyve & Sebze Ekle",
+                label_favorites: "⭐ Hızlı Seçim (Favoriler):",
+                no_favs: "Henüz favori yok",
+                btn_sort: "↕️ Kategoriye Göre Sırala",
+                btn_stats: "📊 İstatistikleri Göster",
+                th_item: "Ürün / Kat.",
+                th_qty: "Adet",
+                th_amount: "Miktar",
+                th_price: "Fiyat (€)",
+                total_sum: "Toplam Tutar:",
+                btn_csv: "📥 Listeyi CSV İndir",
+                btn_share: "📲 Listeyi Paylaş",
+                btn_clear: "🗑️ Listeyi Temizle",
+                recipe_title: "🍽 Akıllı Tarif İçe Aktarıcı",
+                recipe_name_label: "Tarif Adı:",
+                recipe_text_label: "Malzemeleri Yapıştırın:",
+                btn_import: "✨ Tarifi İçe Aktar ve Kaydet",
+                pantry_title: "🧊 Kiler ve SKT Takibi",
+                pantry_sub: "İşaretlenen ürünler buraya eklenir.",
+                th_pantry_item: "Ürün",
+                th_pantry_mhd: "Son Kullanma",
+                th_pantry_status: "Durum",
+                opt_total: "Toplam",
+                opt_100g: "/ 100g",
+                opt_1kg: "/ 1 kg",
+                at_checkout: "kasada",
+                target_price: "🔔 Hedef Fiyat",
+                no_recipes: "Henüz kaydedilmiş tarif yok.",
+                add_ingredients: "🛒 Malzemeleri Listeye Ekle",
+                kat_grocery: "Gıda",
+                kat_produce: "Meyve & Sebze",
+                kat_bakery: "Fırın",
+                kat_drinks: "İçecekler",
+                kat_canned: "Konserve",
+                kat_drugstore: "Kozmetik/Temizlik",
+                kat_frozen: "Dondurulmuş",
+                kat_other: "Diğer"
+            },
+            pl: {
+                app_title: "🛒 Lista Zakupów & Asystent",
+                label_supermarket: "Supermarket / Sklep:",
+                btn_scan: "📷 Skanuj Kod Kreskowy",
+                btn_bakery: "🥐 Dodaj Pieczywo",
+                btn_produce: "🥦 Dodaj Owoce i Warzywa",
+                label_favorites: "⭐ Szybki Wybór (Ulubione):",
+                no_favs: "Brak ulubionych",
+                btn_sort: "↕️ Sortuj wg Kategorii",
+                btn_stats: "📊 Pokaż Statystyki",
+                th_item: "Artykuł / Kat.",
+                th_qty: "Ilość",
+                th_amount: "Waga",
+                th_price: "Cena (€)",
+                total_sum: "Suma całkowita:",
+                btn_csv: "📥 Pobierz jako CSV",
+                btn_share: "📲 Udostępnij Listę",
+                btn_clear: "🗑️ Wyczyść Listę",
+                recipe_title: "🍽 Importer Przepisów",
+                recipe_name_label: "Nazwa Przepisu:",
+                recipe_text_label: "Wklej składniki:",
+                btn_import: "✨ Importuj i Zapisz",
+                pantry_title: "🧊 Spiżarnia & Data Ważności",
+                pantry_sub: "Odznaczone produkty trafiają tutaj.",
+                th_pantry_item: "Artykuł",
+                th_pantry_mhd: "Data Ważności",
+                th_pantry_status: "Status",
+                opt_total: "Razem",
+                opt_100g: "/ 100g",
+                opt_1kg: "/ 1 kg",
+                at_checkout: "przy kasie",
+                target_price: "🔔 Docelowa cena",
+                no_recipes: "Brak zapisanych przepisów.",
+                add_ingredients: "🛒 Dodaj składniki do listy",
+                kat_grocery: "Artykuły spożywcze",
+                kat_produce: "Owoce i Warzywa",
+                kat_bakery: "Pieczywo",
+                kat_drinks: "Napoje",
+                kat_canned: "Konserwy",
+                kat_drugstore: "Drogeria",
+                kat_frozen: "Mrożonki",
+                kat_other: "Inne"
+            },
+            es: {
+                app_title: "🛒 Lista de Compras & Asistente",
+                label_supermarket: "Supermercado / Tienda:",
+                btn_scan: "📷 Escanear Código en Vivo",
+                btn_bakery: "🥐 Añadir Panadería",
+                btn_produce: "🥦 Añadir Frutas y Verduras",
+                label_favorites: "⭐ Selección Rápida (Favoritos):",
+                no_favs: "Sin favoritos aún",
+                btn_sort: "↕️ Ordenar por Categoría",
+                btn_stats: "📊 Mostrar Estadísticas",
+                th_item: "Artículo / Cat.",
+                th_qty: "Cant.",
+                th_amount: "Monto",
+                th_price: "Precio (€)",
+                total_sum: "Suma Total:",
+                btn_csv: "📥 Descargar como CSV",
+                btn_share: "📲 Compartir Lista",
+                btn_clear: "🗑️ Vaciar Lista",
+                recipe_title: "🍽 Importador de Recetas",
+                recipe_name_label: "Nombre de Receta:",
+                recipe_text_label: "Pegar ingredientes:",
+                btn_import: "✨ Importar y Guardar",
+                pantry_title: "🧊 Despensa & Caducidad",
+                pantry_sub: "Los productos marcados vienen aquí.",
+                th_pantry_item: "Artículo",
+                th_pantry_mhd: "Fecha Caducidad",
+                th_pantry_status: "Estado",
+                opt_total: "Total",
+                opt_100g: "/ 100g",
+                opt_1kg: "/ 1 kg",
+                at_checkout: "en caja",
+                target_price: "🔔 Precio Objetivo",
+                no_recipes: "No hay recetas guardadas.",
+                add_ingredients: "🛒 Añadir ingredientes a la lista",
+                kat_grocery: "Comestibles",
+                kat_produce: "Frutas y Verduras",
+                kat_bakery: "Panadería",
+                kat_drinks: "Bebidas",
+                kat_canned: "Enlatados",
+                kat_drugstore: "Droguería",
+                kat_frozen: "Congelados",
+                kat_other: "Otros"
+            },
+            fr: {
+                app_title: "🛒 Liste de Courses & Assistant",
+                label_supermarket: "Supermarché / Magasin:",
+                btn_scan: "📷 Scanner le Code-Barres",
+                btn_bakery: "🥐 Ajouter Boulangerie",
+                btn_produce: "🥦 Ajouter Fruits & Légumes",
+                label_favorites: "⭐ Favoris Rapides:",
+                no_favs: "Pas encore de favoris",
+                btn_sort: "↕️ Trier par Catégorie",
+                btn_stats: "📊 Afficher les Statistiques",
+                th_item: "Article / Cat.",
+                th_qty: "Qté",
+                th_amount: "Poids",
+                th_price: "Prix (€)",
+                total_sum: "Total Général:",
+                btn_csv: "📥 Télécharger en CSV",
+                btn_share: "📲 Partager la Liste",
+                btn_clear: "🗑️ Vider la Liste",
+                recipe_title: "🍽 Importateur de Recettes",
+                recipe_name_label: "Nom de Recette:",
+                recipe_text_label: "Coller les ingrédients:",
+                btn_import: "✨ Importer & Enregistrer",
+                pantry_title: "🧊 Garde-Manger & DLC",
+                pantry_sub: "Les articles cochés arrivent ici.",
+                th_pantry_item: "Article",
+                th_pantry_mhd: "Date DLC",
+                th_pantry_status: "Statut",
+                opt_total: "Total",
+                opt_100g: "/ 100g",
+                opt_1kg: "/ 1 kg",
+                at_checkout: "à la caisse",
+                target_price: "🔔 Prix Cible",
+                no_recipes: "Aucune recette enregistrée.",
+                add_ingredients: "🛒 Ajouter les ingrédients",
+                kat_grocery: "Épicerie",
+                kat_produce: "Fruits & Légumes",
+                kat_bakery: "Boulangerie",
+                kat_drinks: "Boissons",
+                kat_canned: "Conserves",
+                kat_drugstore: "Droguerie",
+                kat_frozen: "Surgelés",
+                kat_other: "Autres"
+            },
+            it: {
+                app_title: "🛒 Lista della Spesa & Assistente",
+                label_supermarket: "Supermercato / Negozio:",
+                btn_scan: "📷 Scansiona Codice",
+                btn_bakery: "🥐 Aggiungi Panetteria",
+                btn_produce: "🥦 Aggiungi Frutta e Verdura",
+                label_favorites: "⭐ Preferiti Rapidi:",
+                no_favs: "Nessun preferito",
+                btn_sort: "↕️ Ordina per Categoria",
+                btn_stats: "📊 Mostra Statistiche",
+                th_item: "Articolo / Cat.",
+                th_qty: "Qtà",
+                th_amount: "Peso",
+                th_price: "Prezzo (€)",
+                total_sum: "Totale:",
+                btn_csv: "📥 Scarica come CSV",
+                btn_share: "📲 Condividi Lista",
+                btn_clear: "🗑️ Svuota Lista",
+                recipe_title: "🍽 Importatore Ricette",
+                recipe_name_label: "Nome Ricetta:",
+                recipe_text_label: "Incolla ingredienti:",
+                btn_import: "✨ Importa & Salva",
+                pantry_title: "🧊 Dispensa & Scadenza",
+                pantry_sub: "Gli articoli spuntati vanno qui.",
+                th_pantry_item: "Articolo",
+                th_pantry_mhd: "Data Scadenza",
+                th_pantry_status: "Stato",
+                opt_total: "Totale",
+                opt_100g: "/ 100g",
+                opt_1kg: "/ 1 kg",
+                at_checkout: "alla cassa",
+                target_price: "🔔 Prezzo Target",
+                no_recipes: "Nessuna ricetta salvata.",
+                add_ingredients: "🛒 Aggiungi ingredienti",
+                kat_grocery: "Generi Alimentari",
+                kat_produce: "Frutta e Verdura",
+                kat_bakery: "Panetteria",
+                kat_drinks: "Bevande",
+                kat_canned: "In scatola",
+                kat_drugstore: "Igiene",
+                kat_frozen: "Surgelati",
+                kat_other: "Altro"
+            }
+        };
+
+        let currentLang = localStorage.getItem("app_lang") || "de";
         let html5QrcodeScanner;
 
         document.addEventListener("DOMContentLoaded", () => {
+            document.getElementById("languageSelect").value = currentLang;
+            aendereSprache(currentLang);
             ladeAktuelleListe();
             ladeFavoriten();
             ladeVorraete();
             ladeRezepte();
         });
+
+        function aendereSprache(lang) {
+            currentLang = lang;
+            localStorage.setItem("app_lang", lang);
+            let t = translations[lang] || translations.de;
+
+            document.querySelectorAll("[data-i18n]").forEach(elem => {
+                let key = elem.getAttribute("data-i18n");
+                if (t[key]) {
+                    elem.textContent = t[key];
+                }
+            });
+
+            // Option-Texte in allen Dropdowns aktualisieren
+            document.querySelectorAll(".price-type-select").forEach(select => {
+                select.options[0].text = t.opt_total;
+                select.options[1].text = t.opt_100g;
+                select.options[2].text = t.opt_1kg;
+            });
+
+            // Re-render Berechnungsanzeigen
+            berechneGesamtsumme();
+            ladeRezepte();
+            ladeFavoriten();
+        }
 
         function startScanner() {
             html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 150} }, false);
@@ -168,7 +515,7 @@
             let backwarenName = prompt("Name der Backware (z.B. Kaisersemmel, Breze):");
             if (!backwarenName) return;
 
-            let pluNummer = prompt("PLU-Nummer / Code vom Schild (optional):", "");
+            let pluNummer = prompt("PLU-Nummer / Code (optional):", "");
             let code = pluNummer.trim() !== "" ? "PLU_" + pluNummer.trim() : "BACK_" + backwarenName.toLowerCase().replace(/\s+/g, '_');
 
             let gespeicherteDaten = JSON.parse(localStorage.getItem("prod_" + code)) || {};
@@ -185,10 +532,10 @@
         }
 
         function losesObstGemueseHinzufuegen() {
-            let artikelName = prompt("Name von Obst / Gemüse (z.B. Bananen, Äpfel, Avocado):");
+            let artikelName = prompt("Name von Obst / Gemüse (z.B. Bananen, Äpfel):");
             if (!artikelName) return;
 
-            let pluNummer = prompt("PLU-Nummer vom Preisschild (z.B. 4011 für Bananen - optional):", "");
+            let pluNummer = prompt("PLU-Nummer (z.B. 4011 für Bananen - optional):", "");
             let code = pluNummer.trim() !== "" ? "PLU_" + pluNummer.trim() : "OG_" + artikelName.toLowerCase().replace(/\s+/g, '_');
 
             let gespeicherteDaten = JSON.parse(localStorage.getItem("prod_" + code)) || {};
@@ -205,6 +552,7 @@
         }
 
         async function produktHinzufuegen(barcode, bestehendeDaten = null) {
+            let t = translations[currentLang] || translations.de;
             let table = document.getElementById("einkaufsTabelle").getElementsByTagName('tbody')[0];
             let newRow = table.insertRow(0);
 
@@ -227,16 +575,16 @@
 
             let cell1 = newRow.insertCell(1);
             cell1.innerHTML = `
-                <input type="text" placeholder="Artikelname..." value="${altName}" oninput="eingabeGeaendert('${barcode}', this)">
+                <input type="text" placeholder="..." value="${altName}" oninput="eingabeGeaendert('${barcode}', this)">
                 <select onchange="kategorieGeaendert('${barcode}', this)" style="margin-top: 3px;">
-                    <option ${altKat === 'Lebensmittel' ? 'selected' : ''}>Lebensmittel</option>
-                    <option ${altKat === 'Obst & Gemüse' ? 'selected' : ''}>Obst & Gemüse</option>
-                    <option ${altKat === 'Backwaren' ? 'selected' : ''}>Backwaren</option>
-                    <option ${altKat === 'Getränke' ? 'selected' : ''}>Getränke</option>
-                    <option ${altKat === 'Dosen / Konserven' ? 'selected' : ''}>Dosen / Konserven</option>
-                    <option ${altKat === 'Drogerie' ? 'selected' : ''}>Drogerie</option>
-                    <option ${altKat === 'Tiefkühl' ? 'selected' : ''}>Tiefkühl</option>
-                    <option ${altKat === 'Sonstiges' ? 'selected' : ''}>Sonstiges</option>
+                    <option value="Lebensmittel" ${altKat === 'Lebensmittel' ? 'selected' : ''}>${t.kat_grocery}</option>
+                    <option value="Obst & Gemüse" ${altKat === 'Obst & Gemüse' ? 'selected' : ''}>${t.kat_produce}</option>
+                    <option value="Backwaren" ${altKat === 'Backwaren' ? 'selected' : ''}>${t.kat_bakery}</option>
+                    <option value="Getränke" ${altKat === 'Getränke' ? 'selected' : ''}>${t.kat_drinks}</option>
+                    <option value="Dosen / Konserven" ${altKat === 'Dosen / Konserven' ? 'selected' : ''}>${t.kat_canned}</option>
+                    <option value="Drogerie" ${altKat === 'Drogerie' ? 'selected' : ''}>${t.kat_drugstore}</option>
+                    <option value="Tiefkühl" ${altKat === 'Tiefkühl' ? 'selected' : ''}>${t.kat_frozen}</option>
+                    <option value="Sonstiges" ${altKat === 'Sonstiges' ? 'selected' : ''}>${t.kat_other}</option>
                 </select>
                 <span class="barcode-sub">Code: ${barcode}</span>
                 <span class="loading-status" id="status_${barcode}"></span>
@@ -252,18 +600,18 @@
             `;
 
             let cell4 = newRow.insertCell(4);
-            let targetPrice = gespeicherteDaten.zielpreis ? ` (Ziel: ${parseFloat(gespeicherteDaten.zielpreis).toFixed(2)}€)` : '';
+            let targetPrice = gespeicherteDaten.zielpreis ? ` (${parseFloat(gespeicherteDaten.zielpreis).toFixed(2)}€)` : '';
             cell4.innerHTML = `
                 <div style="display: flex; gap: 2px;">
                     <input type="number" step="0.01" class="price-input" placeholder="0.00" value="${altPreis}" oninput="eingabeGeaendert('${barcode}', this)">
                     <select class="price-type-select" onchange="eingabeGeaendert('${barcode}', this)">
-                        <option value="gesamt" ${altPreisTyp === 'gesamt' ? 'selected' : ''}>Gesamt</option>
-                        <option value="100g" ${altPreisTyp === '100g' ? 'selected' : ''}>/ 100g</option>
-                        <option value="1kg" ${altPreisTyp === '1kg' ? 'selected' : ''}>/ 1 kg</option>
+                        <option value="gesamt" ${altPreisTyp === 'gesamt' ? 'selected' : ''}>${t.opt_total}</option>
+                        <option value="100g" ${altPreisTyp === '100g' ? 'selected' : ''}>${t.opt_100g}</option>
+                        <option value="1kg" ${altPreisTyp === '1kg' ? 'selected' : ''}>${t.opt_1kg}</option>
                     </select>
                 </div>
                 <span class="calculated-total" id="calc_${barcode}"></span>
-                <button class="btn-small" style="background-color: #ffc107; color: #000; margin-top: 2px; width: 100%; font-size: 9px;" onclick="zielpreisSetzen('${barcode}')">🔔 Zielpreis${targetPrice}</button>
+                <button class="btn-small" style="background-color: #ffc107; color: #000; margin-top: 2px; width: 100%; font-size: 9px;" onclick="zielpreisSetzen('${barcode}')">${t.target_price}${targetPrice}</button>
                 <span class="price-change" id="diff_${barcode}"></span>
                 <span class="price-compare" id="comp_${barcode}"></span>
             `;
@@ -280,7 +628,6 @@
             }
         }
 
-        // Hilfsfunktion zur Preisberechnung für Grundpreise (100g / 1kg)
         function berechneEndpreisFuerZeile(row) {
             let qty = parseInt(row.cells[2].querySelector("input").value) || 1;
             let gramm = parseFloat(row.cells[3].querySelector("input").value) || 0;
@@ -304,13 +651,12 @@
             let gespeicherteDaten = JSON.parse(localStorage.getItem("prod_" + barcode)) || {};
             let aktuellerZielpreis = gespeicherteDaten.zielpreis || "";
 
-            let eingabe = prompt("Gib deinen Wunsch-/Zielpreis in € für dieses Produkt ein (z.B. 1.99):", aktuellerZielpreis);
+            let eingabe = prompt("Wunschpreis / Target price (€):", aktuellerZielpreis);
             if (eingabe !== null) {
                 let zielpreis = parseFloat(eingabe.replace(',', '.'));
                 if (!isNaN(zielpreis)) {
                     gespeicherteDaten.zielpreis = zielpreis;
                     localStorage.setItem("prod_" + barcode, JSON.stringify(gespeicherteDaten));
-                    alert(`Zielpreis von ${zielpreis.toFixed(2).replace('.', ',')} € gespeichert!`);
                     location.reload();
                 }
             }
@@ -350,7 +696,7 @@
             let einheitLabel = row.cells[3].querySelector(".unit-label");
             let katSelect = row.cells[1].querySelector("select");
 
-            statusSpan.textContent = "⏳ Suche online...";
+            statusSpan.textContent = "⏳...";
 
             try {
                 let response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json`);
@@ -366,15 +712,15 @@
 
                     let catsStr = ((prod.categories_tags ? prod.categories_tags.join(" ") : "") + " " + (prod.categories || "")).toLowerCase();
 
-                    if (catsStr.includes("beverages") || catsStr.includes("drinks") || catsStr.includes("wasser") || catsStr.includes("saft")) {
+                    if (catsStr.includes("beverages") || catsStr.includes("drinks")) {
                         katSelect.value = "Getränke"; einheitLabel.textContent = "ml"; grammInput.placeholder = "ml";
-                    } else if (catsStr.includes("canned") || catsStr.includes("dosen")) {
+                    } else if (catsStr.includes("canned")) {
                         katSelect.value = "Dosen / Konserven";
-                    } else if (catsStr.includes("frozen") || catsStr.includes("tiefkühl")) {
+                    } else if (catsStr.includes("frozen")) {
                         katSelect.value = "Tiefkühl";
-                    } else if (catsStr.includes("bakery") || catsStr.includes("bread")) {
+                    } else if (catsStr.includes("bakery")) {
                         katSelect.value = "Backwaren";
-                    } else if (catsStr.includes("fruits") || catsStr.includes("vegetables") || catsStr.includes("obst") || catsStr.includes("gemüse")) {
+                    } else if (catsStr.includes("fruits") || catsStr.includes("vegetables")) {
                         katSelect.value = "Obst & Gemüse";
                     }
 
@@ -384,435 +730,4 @@
                         if (match) {
                             let val = parseFloat(match[1].replace(',', '.'));
                             let einheit = match[2].toLowerCase();
-                            if (einheit === 'l') { val *= 1000; einheitLabel.textContent = "ml"; }
-                            if (einheit === 'kg') { val *= 1000; einheitLabel.textContent = "g"; }
-                            grammInput.value = val;
-                        }
-                    }
-
-                    statusSpan.textContent = "✓ Gefunden";
-                    setTimeout(() => { statusSpan.textContent = ""; }, 2500);
-                    eingabeGeaendert(barcode, nameInput);
-                } else {
-                    statusSpan.textContent = "❌ Nicht gefunden";
-                    setTimeout(() => { statusSpan.textContent = ""; }, 2500);
-                }
-            } catch (err) {
-                statusSpan.textContent = "";
-            }
-        }
-
-        function eingabeGeaendert(barcode, inputElem) {
-            let row = inputElem.closest("tr");
-            let gespeicherteDaten = JSON.parse(localStorage.getItem("prod_" + barcode)) || {};
-            vergleicheUndSpeichere(barcode, row, gespeicherteDaten);
-            berechneGesamtsumme();
-            speichereAktuelleListe();
-            ladeFavoriten();
-        }
-
-        function vergleicheUndSpeichere(barcode, row, historienDaten) {
-            let nameInput = row.cells[1].querySelector("input[type='text']").value;
-            let katSelect = row.cells[1].querySelector("select").value;
-            let grammInput = parseFloat(row.cells[3].querySelector("input").value);
-            let einheit = row.cells[3].querySelector(".unit-label").textContent;
-            let preisInput = parseFloat(row.cells[4].querySelector(".price-input").value);
-            let preisTyp = row.cells[4].querySelector(".price-type-select").value;
-            let diffSpan = row.cells[4].querySelector(".price-change");
-            let compSpan = row.cells[4].querySelector(".price-compare");
-            let calcSpan = row.cells[4].querySelector(".calculated-total");
-
-            let marktName = document.getElementById("supermarktName").value.trim();
-            speichereProduktHistorie(barcode, nameInput, katSelect, grammInput, einheit, preisInput, preisTyp, marktName);
-
-            // Berechnung für Kassen-Endpreis anzeigen wenn Grundpreis genutzt wird
-            let endpreis = berechneEndpreisFuerZeile(row);
-            if (preisTyp !== "gesamt" && !isNaN(endpreis) && endpreis > 0) {
-                calcSpan.textContent = `= ${endpreis.toFixed(2).replace('.', ',')} € an Kasse`;
-            } else {
-                calcSpan.textContent = "";
-            }
-
-            if (!isNaN(preisInput) && historienDaten.zielpreis && endpreis <= parseFloat(historienDaten.zielpreis)) {
-                diffSpan.className = "price-deal";
-                diffSpan.textContent = `🔥 ANGEBOT! (≤ ${parseFloat(historienDaten.zielpreis).toFixed(2)}€)`;
-                return;
-            }
-
-            if (!isNaN(preisInput) && historienDaten.preis && !isNaN(historienDaten.preis)) {
-                let diff = preisInput - parseFloat(historienDaten.preis);
-                if (diff > 0.005) {
-                    diffSpan.className = "price-change price-up";
-                    diffSpan.textContent = `+${diff.toFixed(2).replace('.', ',')} € teurer`;
-                } else if (diff < -0.005) {
-                    diffSpan.className = "price-change price-down";
-                    diffSpan.textContent = `${diff.toFixed(2).replace('.', ',')} € günstiger`;
-                } else {
-                    diffSpan.textContent = "";
-                }
-            } else {
-                diffSpan.textContent = "";
-            }
-
-            if (historienDaten.markt && historienDaten.preis && marktName && historienDaten.markt.toLowerCase() !== marktName.toLowerCase()) {
-                compSpan.textContent = `Bei ${historienDaten.markt}: ${parseFloat(historienDaten.preis).toFixed(2).replace('.', ',')} €`;
-            } else {
-                compSpan.textContent = "";
-            }
-        }
-
-        function speichereProduktHistorie(barcode, name, kat, gramm, einheit, preis, preisTyp, markt) {
-            let gespeicherteDaten = JSON.parse(localStorage.getItem("prod_" + barcode)) || {};
-            if (name !== null) gespeicherteDaten.name = name;
-            if (kat !== null) gespeicherteDaten.kat = kat;
-            if (gramm !== null && !isNaN(gramm)) gespeicherteDaten.gramm = gramm;
-            if (einheit) gespeicherteDaten.einheit = einheit;
-            if (preis !== null && !isNaN(preis)) gespeicherteDaten.preis = preis;
-            if (preisTyp) gespeicherteDaten.preisTyp = preisTyp;
-            if (markt) gespeicherteDaten.markt = markt;
-
-            localStorage.setItem("prod_" + barcode, JSON.stringify(gespeicherteDaten));
-        }
-
-        function inVorratEintragen(barcode, name) {
-            let vorraete = JSON.parse(localStorage.getItem("vorratskammer")) || [];
-            let in7Tagen = new Date();
-            in7Tagen.setDate(in7Tagen.getDate() + 7);
-            let defaultDatum = in7Tagen.toISOString().slice(0, 10);
-
-            vorraete.push({ id: Date.now(), barcode, name, mhd: defaultDatum });
-            localStorage.setItem("vorratskammer", JSON.stringify(vorraete));
-            ladeVorraete();
-        }
-
-        function ladeVorraete() {
-            let vorraete = JSON.parse(localStorage.getItem("vorratskammer")) || [];
-            let tbody = document.getElementById("vorratsTabelle").getElementsByTagName("tbody")[0];
-            tbody.innerHTML = "";
-
-            let heute = new Date().toISOString().slice(0, 10);
-
-            vorraete.forEach(item => {
-                let row = tbody.insertRow();
-                let statusText = "OK";
-                let statusClass = "mhd-ok";
-
-                if (item.mhd < heute) {
-                    statusText = "Abgelaufen!";
-                    statusClass = "mhd-expired";
-                } else if (item.mhd === heute) {
-                    statusText = "Heute!";
-                    statusClass = "mhd-warn";
-                }
-
-                row.innerHTML = `
-                    <td style="font-size: 12px; font-weight: bold;">${item.name}</td>
-                    <td><input type="date" value="${item.mhd}" style="font-size: 11px;" onchange="mhdAendern(${item.id}, this.value)"></td>
-                    <td class="${statusClass}" style="font-size: 11px;">${statusText}</td>
-                    <td><button class="btn-delete" onclick="vorratLoeschen(${item.id})">✕</button></td>
-                `;
-            });
-        }
-
-        function mhdAendern(id, neuesDatum) {
-            let vorraete = JSON.parse(localStorage.getItem("vorratskammer")) || [];
-            let item = vorraete.find(v => v.id === id);
-            if (item) {
-                item.mhd = neuesDatum;
-                localStorage.setItem("vorratskammer", JSON.stringify(vorraete));
-                ladeVorraete();
-            }
-        }
-
-        function vorratLoeschen(id) {
-            let vorraete = JSON.parse(localStorage.getItem("vorratskammer")) || [];
-            vorraete = vorraete.filter(v => v.id !== id);
-            localStorage.setItem("vorratskammer", JSON.stringify(vorraete));
-            ladeVorraete();
-        }
-
-        function rezeptImportieren() {
-            let name = document.getElementById("importRezeptName").value.trim() || "Neues Rezept";
-            let rawText = document.getElementById("importZutatenText").value;
-
-            if (!rawText.trim()) {
-                alert("Bitte füge zuerst den Rezepttext oder Zutaten ein!");
-                return;
-            }
-
-            let zeilen = rawText.split(/\r?\n/);
-            let zutaten = [];
-
-            zeilen.forEach(zeile => {
-                let sauber = zeile.replace(/^[-•*–\d+\.]+\s*/, '').trim();
-                if (sauber.length > 2) {
-                    zutaten.push(sauber);
-                }
-            });
-
-            if (zutaten.length === 0) {
-                alert("Keine gültigen Zutaten erkannt.");
-                return;
-            }
-
-            let rezepte = JSON.parse(localStorage.getItem("rezepte")) || [];
-            rezepte.push({ id: Date.now(), name: name, zutaten: zutaten });
-            localStorage.setItem("rezepte", JSON.stringify(rezepte));
-
-            document.getElementById("importRezeptName").value = "";
-            document.getElementById("importZutatenText").value = "";
-
-            ladeRezepte();
-            alert(`Rezept "${name}" mit ${zutaten.length} Zutaten erfolgreich gespeichert!`);
-        }
-
-        function ladeRezepte() {
-            let rezepte = JSON.parse(localStorage.getItem("rezepte")) || [];
-            let container = document.getElementById("rezepteListe");
-            container.innerHTML = "";
-
-            if (rezepte.length === 0) {
-                container.innerHTML = `<span style="font-size: 11px; color: #999;">Noch keine Rezepte gespeichert.</span>`;
-                return;
-            }
-
-            rezepte.reverse().forEach(r => {
-                let card = document.createElement("div");
-                card.className = "recipe-card";
-                card.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <strong style="font-size: 13px;">${r.name}</strong>
-                        <button class="btn-delete" onclick="rezeptLoeschen(${r.id})">✕</button>
-                    </div>
-                    <p style="font-size: 11px; color: #555; margin: 4px 0;">Zutaten: ${r.zutaten.join(", ")}</p>
-                    <button class="btn-small" style="background-color: #198754; color: white;" onclick="rezeptAufEinkaufsliste(${r.id})">🛒 Zutaten auf Einkaufsliste setzen</button>
-                `;
-                container.appendChild(card);
-            });
-        }
-
-        function rezeptAufEinkaufsliste(id) {
-            let rezepte = JSON.parse(localStorage.getItem("rezepte")) || [];
-            let rezept = rezepte.find(r => r.id === id);
-            if (!rezept) return;
-
-            rezept.zutaten.forEach(zutat => {
-                let match = zutat.match(/^(\d+[\.,]?\d*)\s*(g|ml|kg|l|Stück)?\s+(.*)/i);
-                
-                let mengev = "";
-                let einheitv = "g";
-                let namev = zutat;
-
-                if (match) {
-                    mengev = match[1];
-                    einheitv = match[2] ? match[2].toLowerCase() : "g";
-                    namev = match[3];
-                }
-
-                let code = "REZ_" + namev.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-
-                produktHinzufuegen(code, {
-                    name: namev,
-                    kat: "Lebensmittel",
-                    menge: 1,
-                    gramm: mengev,
-                    einheit: einheitv,
-                    preis: "",
-                    preisTyp: "gesamt"
-                });
-            });
-
-            alert(`Zutaten für "${rezept.name}" wurden deiner Einkaufsliste hinzugefügt!`);
-        }
-
-        function rezeptLoeschen(id) {
-            let rezepte = JSON.parse(localStorage.getItem("rezepte")) || [];
-            rezepte = rezepte.filter(r => r.id !== id);
-            localStorage.setItem("rezepte", JSON.stringify(rezepte));
-            ladeRezepte();
-        }
-
-        function ladeFavoriten() {
-            let favContainer = document.getElementById("favList");
-            favContainer.innerHTML = "";
-
-            let alleProdukte = [];
-            for (let i = 0; i < localStorage.length; i++) {
-                let key = localStorage.key(i);
-                if (key.startsWith("prod_")) {
-                    let prod = JSON.parse(localStorage.getItem(key));
-                    if (prod && prod.name) {
-                        let barcode = key.replace("prod_", "");
-                        alleProdukte.push({ barcode, ...prod });
-                    }
-                }
-            }
-
-            if (alleProdukte.length === 0) {
-                favContainer.innerHTML = `<span style="font-size: 11px; color: #999;">Noch keine Favoriten</span>`;
-                return;
-            }
-
-            alleProdukte.slice(-8).reverse().forEach(prod => {
-                let btn = document.createElement("button");
-                btn.className = "fav-btn";
-                let preisStr = prod.preis ? ` (${parseFloat(prod.preis).toFixed(2).replace('.', ',')}€)` : "";
-                btn.textContent = `+ ${prod.name}${preisStr}`;
-                btn.onclick = () => {
-                    produktHinzufuegen(prod.barcode, {
-                        name: prod.name,
-                        kat: prod.kat || "Lebensmittel",
-                        menge: 1,
-                        gramm: prod.gramm || "",
-                        einheit: prod.einheit || "g",
-                        preis: prod.preis || "",
-                        preisTyp: prod.preisTyp || "gesamt"
-                    });
-                };
-                favContainer.appendChild(btn);
-            });
-        }
-
-        function zeigeStatistik() {
-            let rows = document.querySelectorAll("#einkaufsTabelle tbody tr");
-            if (rows.length === 0) { alert("Die Einkaufsliste ist leer."); return; }
-
-            let gesamtArtikel = 0, gesamtSumme = 0;
-            rows.forEach(row => {
-                let qty = parseInt(row.cells[2].querySelector("input").value) || 1;
-                let price = berechneEndpreisFuerZeile(row);
-                gesamtArtikel += qty; gesamtSumme += price;
-            });
-
-            alert(`📊 STATISTIK:\n- Gesamtsumme: ${gesamtSumme.toFixed(2).replace('.', ',')} €\n- Artikelanzahl: ${gesamtArtikel} Stück`);
-        }
-
-        function berechneGesamtsumme() {
-            let rows = document.querySelectorAll("#einkaufsTabelle tbody tr");
-            let gesamt = 0;
-            rows.forEach(row => {
-                gesamt += berechneEndpreisFuerZeile(row);
-            });
-            document.getElementById("gesamtpreis").textContent = gesamt.toFixed(2).replace('.', ',') + " €";
-        }
-
-        function speichereAktuelleListe() {
-            let rows = document.querySelectorAll("#einkaufsTabelle tbody tr");
-            let einkaufsListe = [];
-            rows.forEach(row => {
-                let barcode = row.cells[1].querySelector(".barcode-sub").textContent.replace("Code: ", "").trim();
-                let name = row.cells[1].querySelector("input[type='text']").value;
-                let kat = row.cells[1].querySelector("select").value;
-                let menge = row.cells[2].querySelector("input").value;
-                let gramm = row.cells[3].querySelector("input").value;
-                let einheit = row.cells[3].querySelector(".unit-label").textContent;
-                let preis = row.cells[4].querySelector(".price-input").value;
-                let preisTyp = row.cells[4].querySelector(".price-type-select").value;
-                let erledigt = row.cells[0].querySelector("input").checked;
-
-                einkaufsListe.push({ barcode, name, kat, menge, gramm, einheit, preis, preisTyp, erledigt });
-            });
-
-            let markt = document.getElementById("supermarktName").value;
-            localStorage.setItem("aktuelle_liste", JSON.stringify(einkaufsListe));
-            localStorage.setItem("aktueller_markt", markt);
-        }
-
-        function ladeAktuelleListe() {
-            let savedList = JSON.parse(localStorage.getItem("aktuelle_liste")) || [];
-            let savedMarkt = localStorage.getItem("aktueller_markt") || "";
-            document.getElementById("supermarktName").value = savedMarkt;
-
-            let tbody = document.getElementById("einkaufsTabelle").getElementsByTagName("tbody")[0];
-            tbody.innerHTML = "";
-
-            savedList.reverse().forEach(item => {
-                produktHinzufuegen(item.barcode, item);
-            });
-        }
-
-        function zeileLoeschen(btn) {
-            let row = btn.closest("tr");
-            row.remove();
-            berechneGesamtsumme();
-            speichereAktuelleListe();
-        }
-
-        function nachKategorieSortieren() {
-            let tbody = document.getElementById("einkaufsTabelle").getElementsByTagName("tbody")[0];
-            let rows = Array.from(tbody.rows);
-
-            rows.sort((a, b) => {
-                let katA = a.cells[1].querySelector("select").value;
-                let katB = b.cells[1].querySelector("select").value;
-                return katA.localeCompare(katB);
-            });
-
-            rows.forEach(row => tbody.appendChild(row));
-        }
-
-        function listeLeeren() {
-            if (confirm("Möchtest du die gesamte Einkaufsliste leeren?")) {
-                document.getElementById("einkaufsTabelle").getElementsByTagName("tbody")[0].innerHTML = "";
-                berechneGesamtsumme();
-                speichereAktuelleListe();
-            }
-        }
-
-        function listeHerunterladenCSV() {
-            let rows = document.querySelectorAll("#einkaufsTabelle tbody tr");
-            if (rows.length === 0) { alert("Liste ist leer!"); return; }
-
-            let csvContent = "data:text/csv;charset=utf-8,Erledigt;Artikel;Kategorie;Anzahl;Menge;Endpreis\n";
-            rows.forEach(row => {
-                let erledigt = row.cells[0].querySelector("input").checked ? "JA" : "NEIN";
-                let name = row.cells[1].querySelector("input[type='text']").value;
-                let kat = row.cells[1].querySelector("select").value;
-                let menge = row.cells[2].querySelector("input").value;
-                let gramm = row.cells[3].querySelector("input").value + row.cells[3].querySelector(".unit-label").textContent;
-                let endpreis = berechneEndpreisFuerZeile(row).toFixed(2);
-
-                csvContent += `${erledigt};"${name}";"${kat}";${menge};"${gramm}";"${endpreis}"\n`;
-            });
-
-            let encodedUri = encodeURI(csvContent);
-            let link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "einkaufsliste.csv");
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
-        function listeTeilen() {
-            let rows = document.querySelectorAll("#einkaufsTabelle tbody tr");
-            if (rows.length === 0) { alert("Liste ist leer!"); return; }
-
-            let markt = document.getElementById("supermarktName").value;
-            let text = `🛒 *Einkaufsliste*${markt ? " für " + markt : ""}:\n\n`;
-
-            rows.forEach(row => {
-                let erledigt = row.cells[0].querySelector("input").checked ? "✅ " : "⬜ ";
-                let name = row.cells[1].querySelector("input[type='text']").value || "Unbenannt";
-                let qty = row.cells[2].querySelector("input").value;
-                let gramm = row.cells[3].querySelector("input").value;
-                let einheit = row.cells[3].querySelector(".unit-label").textContent;
-                let mengeText = gramm ? ` (${gramm}${einheit})` : "";
-                let endpreis = berechneEndpreisFuerZeile(row);
-                let preisText = endpreis > 0 ? ` - ${endpreis.toFixed(2).replace('.', ',')}€` : "";
-
-                text += `${erledigt}${qty}x ${name}${mengeText}${preisText}\n`;
-            });
-
-            let summe = document.getElementById("gesamtpreis").textContent;
-            text += `\n💰 *Gesamtsumme:* ${summe}`;
-
-            if (navigator.share) {
-                navigator.share({ title: 'Einkaufsliste', text: text });
-            } else {
-                window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
-            }
-        }
-    </script>
-</body>
-</html>
+                            if
