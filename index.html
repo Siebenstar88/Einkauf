@@ -1196,6 +1196,52 @@
             localStorage.setItem("vorratskammer", JSON.stringify(vorraete));
             ladeVorraete();
         }
+        // 1. Berechtigung beim Nutzer anfragen
+        async function requestNotificationPermission() {
+          if (!("Notification" in window)) {
+            alert("Dieser Browser unterstützt keine Push-Benachrichtigungen.");
+        return false;
+        }
+
+      if (Notification.permission === "granted") {
+        return true;
+      }
+
+      const permission = await Notification.requestPermission();
+      return permission === "granted";
+    }
+
+    // 2. Prüfen, ob ein Produkt in 2 Tagen abläuft
+    function checkAndNotifyExpiringItems(products) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      products.forEach(item => {
+        if (!item.expiryDate) return;
+
+    const expiryDate = new Date(item.expiryDate);
+    expiryDate.setHours(0, 0, 0, 0);
+
+    // Differenz in Tagen berechnen
+    const timeDiff = expiryDate.getTime() - today.getTime();
+    const daysLeft = Math.ceil(timeDiff / (1000 * 3600 * 24));
+
+    // Genau 2 Tage vorher warnen
+    if (daysLeft === 2) {
+      showNotification(item);
+    }
+  });
+}
+
+// 3. Die eigentliche Benachrichtigung anzeigen
+function showNotification(item) {
+  if (Notification.permission === "granted") {
+    new Notification("⚠️ MHD-Erinnerung", {
+      body: `Dein Produkt "${item.itemName}" läuft in 2 Tagen (am ${item.expiryDate}) ab!`,
+      icon: "https://github.githubassets.com/favicons/favicon.png" // Optional: Pfad zu deinem App-Icon
+    });
+  }
+}
     </script>
 </body>
 </html>
