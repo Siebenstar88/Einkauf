@@ -1242,6 +1242,17 @@ function showNotification(item) {
     });
   }
 }
+        // Sobald die Seite geladen wird
+document.addEventListener("DOMContentLoaded", async () => {
+  // 1. Nach Erlaubnis fragen
+  const permitted = await requestNotificationPermission();
+
+  // 2. Deine gespeicherten Produkte prüfen (z.B. aus dem LocalStorage)
+  if (permitted) {
+    const savedProducts = JSON.parse(localStorage.getItem("products") || "[]");
+    checkAndNotifyExpiringItems(savedProducts);
+  }
+});
     </script>
 </body>
 </html>
