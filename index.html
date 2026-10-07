@@ -120,6 +120,10 @@
             <span data-i18n="total_sum">Gesamtsumme:</span> <span id="gesamtpreis">0,00 €</span>
         </div>
 
+        <!-- Test-Button für Push-Benachrichtigungen -->
+        <button type="button" onclick="sendTestNotification()" style="padding: 10px 16px; background-color: #007bff; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">
+          🔔 Test-Benachrichtigung senden
+        </button>
         <button class="btn-action btn-download" onclick="listeHerunterladenCSV()" data-i18n="btn_csv">📥 Liste als CSV herunterladen</button>
         <button class="btn-action btn-share" onclick="listeTeilen()" data-i18n="btn_share">📲 Liste teilen (WhatsApp/Mail)</button>
         <button class="btn-action btn-reset" onclick="listeLeeren()" data-i18n="btn_clear">🗑️ Liste leeren</button>
@@ -1253,6 +1257,29 @@ document.addEventListener("DOMContentLoaded", async () => {
     checkAndNotifyExpiringItems(savedProducts);
   }
 });
+        async function sendTestNotification() {
+  // 1. Prüfen, ob der Browser Benachrichtigungen unterstützt
+  if (!("Notification" in window)) {
+    alert("Dieser Browser unterstützt leider keine Push-Benachrichtigungen.");
+    return;
+  }
+
+  // 2. Berechtigung anfragen, falls noch nicht geschehen
+  let permission = Notification.permission;
+  if (permission !== "granted") {
+    permission = await Notification.requestPermission();
+  }
+
+  // 3. Wenn erlaubt, Test-Benachrichtigung auslösen
+  if (permission === "granted") {
+    new Notification("🔔 Test-Benachrichtigung", {
+      body: "Super! Die Push-Benachrichtigungen funktionieren auf deinem Gerät.",
+      icon: "https://github.githubassets.com/favicons/favicon.png" // Optionales Icon
+    });
+  } else {
+    alert("Benachrichtigungen wurden im Browser blockiert. Bitte erlaube sie in deinen Browser-Einstellungen.");
+  }
+}
     </script>
 </body>
 </html>
